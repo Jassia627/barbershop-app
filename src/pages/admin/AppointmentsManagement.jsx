@@ -1,18 +1,27 @@
-// src/pages/admin/AppointmentsManagement.jsx
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
+import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, Phone, Mail, Scissors, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { 
+  Calendar, 
+  Clock, 
+  User, 
+  Phone, 
+  Mail, 
+  CheckCircle, 
+  XCircle, 
+  MessageCircle 
+} from 'lucide-react';
 
 const statusColors = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  confirmed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-red-100 text-red-800',
-  completed: 'bg-blue-100 text-blue-800'
+  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800/20 dark:text-yellow-400',
+  confirmed: 'bg-green-100 text-green-800 dark:bg-green-800/20 dark:text-green-400',
+  cancelled: 'bg-red-100 text-red-800 dark:bg-red-800/20 dark:text-red-400',
+  completed: 'bg-blue-100 text-blue-800 dark:bg-blue-800/20 dark:text-blue-400'
 };
 
 const statusTranslations = {
@@ -22,8 +31,15 @@ const statusTranslations = {
   completed: 'Completada'
 };
 
+const getWhatsAppLink = (phone, message) => {
+  const formattedPhone = phone.replace(/\D/g, '');
+  const encodedMessage = encodeURIComponent(message);
+  return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
+};
+
 const AppointmentsManagement = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -67,11 +83,16 @@ const AppointmentsManagement = () => {
       );
       
       const querySnapshot = await getDocs(q);
-      const appointmentsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date.toDate()
-      }));
+      const appointmentsData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          date: data.date instanceof Timestamp ? 
+            data.date.toDate() : 
+            new Date(data.date)
+        };
+      });
       
       setAppointments(appointmentsData.sort((a, b) => b.date - a.date));
     } catch (error) {
@@ -87,7 +108,7 @@ const AppointmentsManagement = () => {
       const appointmentRef = doc(db, "appointments", appointmentId);
       await updateDoc(appointmentRef, {
         status: newStatus,
-        updatedAt: new Date(),
+        updatedAt: Timestamp.fromDate(new Date()),
         updatedBy: user.uid
       });
 
@@ -105,18 +126,12 @@ const AppointmentsManagement = () => {
   };
 
   const filteredAppointments = appointments.filter(appointment => {
-    // Filtro por estado
     if (filterStatus !== 'all' && appointment.status !== filterStatus) return false;
-
-    // Filtro por barbero
     if (filterBarber !== 'all' && appointment.barberId !== filterBarber) return false;
-
-    // Filtro por fecha
     if (filterDate === 'today' && !isToday(appointment.date)) return false;
     if (filterDate === 'week' && !isThisWeek(appointment.date)) return false;
     if (filterDate === 'month' && !isThisMonth(appointment.date)) return false;
 
-    // Filtro por búsqueda
     const searchTermLower = searchTerm.toLowerCase();
     return (
       appointment.clientName.toLowerCase().includes(searchTermLower) ||
@@ -124,6 +139,10 @@ const AppointmentsManagement = () => {
       appointment.clientEmail.toLowerCase().includes(searchTermLower)
     );
   });
+
+  const getConfirmationMessage = (appointment) => {
+    return `Hola ${appointment.clientName}, tu cita en ${user.shopName} para el ${format(appointment.date, 'dd/MM/yyyy')} a las ${appointment.time} ha sido confirmada. Te esperamos!`;
+  };
 
   if (loading) {
     return (
@@ -135,13 +154,27 @@ const AppointmentsManagement = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Gestión de Citas</h1>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Gestión de Citas
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">{user?.shopName}</p>
+        </div>
+        <button
+          onClick={() => navigate('/admin/schedules')}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          <Clock className="h-5 w-5" />
+          Gestionar Horarios
+        </button>
+      </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Buscar
             </label>
             <input
@@ -149,18 +182,18 @@ const AppointmentsManagement = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Nombre, teléfono o email..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 dark:bg-gray-700 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Estado
             </label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="all">Todos</option>
               <option value="pending">Pendientes</option>
@@ -171,13 +204,13 @@ const AppointmentsManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Fecha
             </label>
             <select
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="all">Todas</option>
               <option value="today">Hoy</option>
@@ -187,13 +220,13 @@ const AppointmentsManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Barbero
             </label>
             <select
               value={filterBarber}
               onChange={(e) => setFilterBarber(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-yellow-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="all">Todos</option>
               {barbers.map((barber) => (
@@ -212,7 +245,7 @@ const AppointmentsManagement = () => {
                 setFilterBarber('all');
                 setSearchTerm('');
               }}
-              className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               Limpiar Filtros
             </button>
@@ -221,63 +254,52 @@ const AppointmentsManagement = () => {
       </div>
 
       {/* Lista de Citas */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Cliente
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Fecha y Hora
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Servicio
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Barbero
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Estado
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredAppointments.map((appointment) => (
-                <tr key={appointment.id} className="hover:bg-gray-50">
+                <tr key={appointment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
                       {appointment.clientName}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       {appointment.clientPhone}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       {appointment.clientEmail}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
+                    <div className="text-sm text-gray-900 dark:text-white">
                       {format(appointment.date, 'dd/MM/yyyy')}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       {appointment.time}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {appointment.serviceName}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      ${appointment.price}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
+                    <div className="text-sm text-gray-900 dark:text-white">
                       {appointment.barberName}
                     </div>
                   </td>
@@ -288,33 +310,55 @@ const AppointmentsManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     {appointment.status === 'pending' && (
-                      <div className="space-x-2">
+                      <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleStatusChange(appointment.id, 'confirmed')}
-                          className="text-green-600 hover:text-green-900"
+                          className="flex items-center text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
                         >
+                          <CheckCircle className="h-5 w-5 mr-1" />
                           Confirmar
                         </button>
+                        <a
+                          href={getWhatsAppLink(appointment.clientPhone, getConfirmationMessage(appointment))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                        >
+                          <MessageCircle className="h-5 w-5 mr-1" />
+                          WhatsApp
+                        </a>
                         <button
                           onClick={() => handleStatusChange(appointment.id, 'cancelled')}
-                          className="text-red-600 hover:text-red-900"
+                          className="flex items-center text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                         >
+                          <XCircle className="h-5 w-5 mr-1" />
                           Cancelar
                         </button>
                       </div>
                     )}
                     {appointment.status === 'confirmed' && (
-                      <div className="space-x-2">
+                      <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleStatusChange(appointment.id, 'completed')}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="flex items-center text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                         >
+                          <CheckCircle className="h-5 w-5 mr-1" />
                           Completar
                         </button>
+                        <a
+                          href={getWhatsAppLink(appointment.clientPhone, `Recordatorio: Tu cita está programada para hoy a las ${appointment.time}`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                        >
+                          <MessageCircle className="h-5 w-5 mr-1" />
+                          Recordar
+                        </a>
                         <button
                           onClick={() => handleStatusChange(appointment.id, 'cancelled')}
-                          className="text-red-600 hover:text-red-900"
+                          className="flex items-center text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                         >
+                          <XCircle className="h-5 w-5 mr-1" />
                           Cancelar
                         </button>
                       </div>
@@ -327,7 +371,7 @@ const AppointmentsManagement = () => {
         </div>
 
         {filteredAppointments.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             No se encontraron citas que coincidan con los filtros seleccionados.
           </div>
         )}

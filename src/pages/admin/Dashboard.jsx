@@ -1,4 +1,5 @@
 // src\pages\admin\Dashboard.jsx
+import ShareBookingLink from '../../components/common/ShareBookingLink';
 import React, { useState, useEffect } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../firebase/config";
@@ -273,7 +274,9 @@ const AdminDashboard = () => {
           {user?.shopName}
         </p>
       </div>
-
+      <div className="mb-6">
+  <ShareBookingLink />
+</div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           {
