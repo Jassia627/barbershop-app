@@ -7,6 +7,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/f
 import { db } from '../../firebase/config';
 import { toast } from 'react-hot-toast';
 
+
 const BookingPage = () => {
   const { shopId } = useParams();
   const [loading, setLoading] = useState(true);
@@ -20,7 +21,6 @@ const BookingPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    email: '',
     notes: ''
   });
 
@@ -140,6 +140,16 @@ const BookingPage = () => {
     return timeSlots;
   };
 
+  const getWhatsAppMessage = () => {
+    const message = `🌟 ¡Hola! Acabo de agendar una cita ✨\n\n` +
+      `📅 Fecha: ${format(selectedDate, 'EEEE d MMMM', { locale: es })}\n` +
+      `⏰ Hora: ${selectedTime}\n` +
+      `💈 Barbero: ${selectedBarber.name}\n` +
+      `👤 Cliente: ${formData.name}\n\n` +
+      `✨ ¡Gracias ! 🙏`;
+    return message;
+  };
+
   const getWhatsAppLink = (phone, message) => {
     const formattedPhone = phone.replace(/\D/g, '');
     const encodedMessage = encodeURIComponent(message);
@@ -165,7 +175,6 @@ const BookingPage = () => {
         shopId,
         clientName: formData.name,
         clientPhone: formData.phone,
-        clientEmail: formData.email,
         date: Timestamp.fromDate(appointmentDate),
         time: selectedTime,
         notes: formData.notes,
@@ -185,47 +194,57 @@ const BookingPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Agenda tu Cita
+        {/* Encabezado */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            <Scissors className="inline-block w-10 h-10 mb-2 text-blue-600 dark:text-blue-400" />
+            <span className="block">Agenda tu Cita</span>
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Selecciona tu barbero preferido y el horario que mejor te convenga
+          <p className="text-lg text-gray-600 dark:text-gray-400">
+            ¡Reserva tu hora con los mejores profesionales!
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            Selecciona tu Barbero
+        {/* Selección de Barbero */}
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8 transform transition-all">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+            <User className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
+            Elige tu Barbero
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {barbers.map((barber) => (
               <button
                 key={barber.id}
                 onClick={() => setSelectedBarber(barber)}
-                className={`p-4 rounded-lg border transition-all ${
+                className={`group relative p-6 rounded-xl transition-all transform hover:scale-105 ${
                   selectedBarber?.id === barber.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500 shadow-blue-500/20'
+                    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-lg'
                 }`}
               >
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <User className="h-10 w-10 text-gray-400" />
+                    <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                      <User className={`w-8 h-8 ${
+                        selectedBarber?.id === barber.id 
+                          ? 'text-blue-600 dark:text-blue-400' 
+                          : 'text-gray-400'
+                      }`} />
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <div className="ml-4 text-left">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                       {barber.name}
-                    </p>
+                    </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {barber.expertise || 'Barbero Profesional'}
                     </p>
@@ -236,30 +255,32 @@ const BookingPage = () => {
           </div>
         </div>
 
+        {/* Selección de Fecha */}
         {selectedBarber && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+              <Calendar className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
               Selecciona el Día
             </h2>
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
               {availableDates.map((date) => (
                 <button
                   key={date.toISOString()}
                   onClick={() => setSelectedDate(date)}
-                  className={`p-4 rounded-lg border text-center transition-all ${
+                  className={`p-4 rounded-xl text-center transition-all transform hover:scale-105 ${
                     selectedDate?.toDateString() === date.toDateString()
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500'
+                      : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
                   }`}
                 >
-                  <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
                     {format(date, 'EEEE', { locale: es })}
                   </p>
-                  <p className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">
                     {format(date, 'd')}
                   </p>
                   {isToday(date) && (
-                    <span className="inline-block px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full dark:bg-blue-900/20 dark:text-blue-400">
+                    <span className="inline-block px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 dark:bg-blue-900/50 dark:text-blue-400 rounded-full mt-1">
                       Hoy
                     </span>
                   )}
@@ -269,100 +290,91 @@ const BookingPage = () => {
           </div>
         )}
 
+        {/* Selección de Hora */}
         {selectedDate && selectedBarber && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Horarios Disponibles
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+              <Clock className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
+              Elige tu Horario
             </h2>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
               {availableTimeSlots.map((time) => (
                 <button
                   key={time}
                   onClick={() => setSelectedTime(time)}
-                  className={`p-3 rounded-lg border text-center transition-all ${
+                  className={`p-4 rounded-xl text-center transition-all transform hover:scale-105 ${
                     selectedTime === time
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500'
+                      : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
                   }`}
                 >
-                  <Clock className="h-5 w-5 mx-auto mb-1 text-gray-400" />
-                  <span className="text-sm text-gray-900 dark:text-white">{time}</span>
+                  <Clock className={`h-6 w-6 mx-auto mb-2 ${
+                    selectedTime === time 
+                      ? 'text-blue-600 dark:text-blue-400' 
+                      : 'text-gray-400'
+                  }`} />
+                  <span className="text-base font-medium text-gray-900 dark:text-white">
+                    {time}
+                  </span>
                 </button>
               ))}
             </div>
           </div>
         )}
 
+        {/* Formulario de Datos */}
         {selectedTime && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl p-8">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
+              <User className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
               Tus Datos
             </h2>
-            <form onSubmit={handleBooking} className="space-y-4">
+            <form onSubmit={handleBooking} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Nombre completo
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nombre completo *
                 </label>
-                <div className="mt-1 relative">
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    required
-                  />
-                  <User className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Ingresa tu nombre"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Teléfono
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Teléfono (WhatsApp) *
                 </label>
-                <div className="mt-1 relative">
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    required
-                  />
-                  <Phone className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
-                </div>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Ingresa tu número de WhatsApp"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Email
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    required
-                  />
-               
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Notas adicionales
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Notas o preferencias (opcional)
                 </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows="3"
-                  className="block w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="¿Alguna preferencia especial?"
                 />
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-6">
                 <button
                   type="submit"
-                  className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  className="px-8 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transform transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                   Confirmar Cita
                 </button>
@@ -371,29 +383,32 @@ const BookingPage = () => {
           </div>
         )}
 
+        {/* Modal de Éxito */}
         {showSuccessModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-              <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">
-                ¡Cita agendada exitosamente!
-              </h3>
-              <p className="mb-4 text-gray-600 dark:text-gray-400">
-                Tu cita ha sido registrada y está pendiente de confirmación.
-              </p>
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full transform transition-all">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckIcon className="w-8 h-8 text-green-500" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  ¡Reserva Exitosa! 🎉
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Tu cita ha sido registrada y está pendiente de confirmación.
+                </p>
+              </div>
+
               <a
-                href={getWhatsAppLink(
-                  selectedBarber.phone,
-                  `Hola, acabo de agendar una cita para el ${format(selectedDate, 'dd/MM/yyyy')} a las ${selectedTime}.`
-                )}
+                href={getWhatsAppLink(selectedBarber.phone, getWhatsAppMessage())}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 mb-4"
+                className="w-full flex items-center justify-center px-6 py-3 bg-green-500 text-white rounded-xl mb-4 hover:bg-green-600 transform transition-all hover:scale-105"
               >
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
+                <MessageCircle className="w-5 h-5 mr-2" />
                 Contactar por WhatsApp
               </a>
+
               <button
                 onClick={() => {
                   setShowSuccessModal(false);
@@ -403,11 +418,10 @@ const BookingPage = () => {
                   setFormData({
                     name: '',
                     phone: '',
-                    email: '',
                     notes: ''
                   });
                 }}
-                className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                className="w-full px-6 py-3 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transform transition-all"
               >
                 Cerrar
               </button>
@@ -418,5 +432,21 @@ const BookingPage = () => {
     </div>
   );
 };
+
+const CheckIcon = ({ className }) => (
+  <svg 
+    className={className} 
+    fill="none" 
+    viewBox="0 0 24 24" 
+    stroke="currentColor"
+  >
+    <path 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      strokeWidth={2} 
+      d="M5 13l4 4L19 7" 
+    />
+  </svg>
+);
 
 export default BookingPage;
