@@ -1,12 +1,22 @@
+// src/pages/client/BookingPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { format, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Clock, User, Phone, Mail } from 'lucide-react';
+import { 
+  Clock, 
+  User, 
+  Phone, 
+  Mail, 
+  Calendar,
+  MessageCircle,
+  Scissors as ScissorsIcon,
+  Check,
+  AlertCircle
+} from 'lucide-react';
 import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { toast } from 'react-hot-toast';
-
 
 const BookingPage = () => {
   const { shopId } = useParams();
@@ -93,51 +103,75 @@ const BookingPage = () => {
       
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
-
+  
+      // Consulta más simple que solo usa barberId
       const q = query(
         collection(db, "appointments"),
-        where("barberId", "==", selectedBarber.id),
-        where("date", ">=", Timestamp.fromDate(startOfDay)),
-        where("date", "<=", Timestamp.fromDate(endOfDay)),
-        where("status", "in", ["pending", "confirmed"])
+        where("barberId", "==", selectedBarber.id)
       );
-
+  
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data().time);
+      
+      // Filtramos las citas en el cliente
+      const takenTimes = snapshot.docs
+        .filter(doc => {
+          const data = doc.data();
+          const appointmentDate = data.date.toDate();
+          const status = data.status;
+          
+          // Verificamos que la cita sea del mismo día y tenga un estado válido
+          return appointmentDate >= startOfDay &&
+                 appointmentDate <= endOfDay &&
+                 (status === 'pending' || status === 'confirmed');
+        })
+        .map(doc => doc.data().time);
+  
+      return takenTimes;
     } catch (error) {
-      console.error("Error fetching taken slots:", error);
+      console.error("Error al obtener horarios ocupados:", error);
+      toast.error("Error al verificar disponibilidad");
       return [];
     }
   };
-
+  
   const getAvailableTimeSlots = async () => {
     if (!selectedBarber || !selectedDate || schedules.length === 0) return [];
-
-    const schedule = schedules[0];
-    const dayOfWeek = format(selectedDate, 'EEE', { locale: es }).toUpperCase();
-    
-    if (schedule.daysOff?.includes(dayOfWeek)) return [];
-
-    const takenSlots = await fetchTakenSlots(selectedDate);
-
-    const startHour = parseInt(schedule.startTime.split(':')[0]);
-    const endHour = parseInt(schedule.endTime.split(':')[0]);
-    const breakStartHour = parseInt(schedule.breakStart.split(':')[0]);
-    const breakEndHour = parseInt(schedule.breakEnd.split(':')[0]);
-    
-    const timeSlots = [];
-
-    for (let hour = startHour; hour < endHour; hour++) {
-      if (hour < breakStartHour || hour >= breakEndHour) {
-        const slot1 = `${hour.toString().padStart(2, '0')}:00`;
-        const slot2 = `${hour.toString().padStart(2, '0')}:30`;
-        
-        if (!takenSlots.includes(slot1)) timeSlots.push(slot1);
-        if (!takenSlots.includes(slot2)) timeSlots.push(slot2);
+  
+    try {
+      const schedule = schedules[0];
+      const dayOfWeek = format(selectedDate, 'EEE', { locale: es }).toUpperCase();
+      
+      if (schedule.daysOff?.includes(dayOfWeek)) return [];
+  
+      const takenSlots = await fetchTakenSlots(selectedDate);
+  
+      const startHour = parseInt(schedule.startTime.split(':')[0]);
+      const endHour = parseInt(schedule.endTime.split(':')[0]);
+      const breakStartHour = parseInt(schedule.breakStart.split(':')[0]);
+      const breakEndHour = parseInt(schedule.breakEnd.split(':')[0]);
+      
+      const timeSlots = [];
+  
+      for (let hour = startHour; hour < endHour; hour++) {
+        if (hour < breakStartHour || hour >= breakEndHour) {
+          const slot1 = `${hour.toString().padStart(2, '0')}:00`;
+          const slot2 = `${hour.toString().padStart(2, '0')}:30`;
+          
+          if (!takenSlots.includes(slot1)) {
+            timeSlots.push(slot1);
+          }
+          if (!takenSlots.includes(slot2)) {
+            timeSlots.push(slot2);
+          }
+        }
       }
+  
+      return timeSlots;
+    } catch (error) {
+      console.error("Error al obtener horarios disponibles:", error);
+      toast.error("Error al cargar los horarios disponibles");
+      return [];
     }
-
-    return timeSlots;
   };
 
   const getWhatsAppMessage = () => {
@@ -146,7 +180,7 @@ const BookingPage = () => {
       `⏰ Hora: ${selectedTime}\n` +
       `💈 Barbero: ${selectedBarber.name}\n` +
       `👤 Cliente: ${formData.name}\n\n` +
-      `✨ ¡Gracias ! 🙏`;
+      `✨ ¡Gracias! 🙏`;
     return message;
   };
 
@@ -156,7 +190,7 @@ const BookingPage = () => {
     return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
   };
 
-  const handleBooking = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!selectedBarber || !selectedDate || !selectedTime) {
@@ -165,8 +199,8 @@ const BookingPage = () => {
     }
 
     try {
-      const [hours, minutes] = selectedTime.split(':');
       const appointmentDate = new Date(selectedDate);
+      const [hours, minutes] = selectedTime.split(':');
       appointmentDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
       const appointmentData = {
@@ -206,7 +240,7 @@ const BookingPage = () => {
         {/* Encabezado */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            <Scissors className="inline-block w-10 h-10 mb-2 text-blue-600 dark:text-blue-400" />
+            <ScissorsIcon className="inline-block w-10 h-10 mb-2 text-blue-600 dark:text-blue-400" />
             <span className="block">Agenda tu Cita</span>
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
@@ -215,7 +249,7 @@ const BookingPage = () => {
         </div>
 
         {/* Selección de Barbero */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8 transform transition-all">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
             <User className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
             Elige tu Barbero
@@ -318,6 +352,14 @@ const BookingPage = () => {
                   </span>
                 </button>
               ))}
+              {availableTimeSlots.length === 0 && (
+                <div className="col-span-full text-center py-8">
+                  <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No hay horarios disponibles para este día
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -329,7 +371,7 @@ const BookingPage = () => {
               <User className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
               Tus Datos
             </h2>
-            <form onSubmit={handleBooking} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Nombre completo *
@@ -389,7 +431,7 @@ const BookingPage = () => {
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full transform transition-all">
               <div className="text-center">
                 <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckIcon className="w-8 h-8 text-green-500" />
+                  <Check className="w-8 h-8 text-green-500" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                   ¡Reserva Exitosa! 🎉
@@ -432,21 +474,5 @@ const BookingPage = () => {
     </div>
   );
 };
-
-const CheckIcon = ({ className }) => (
-  <svg 
-    className={className} 
-    fill="none" 
-    viewBox="0 0 24 24" 
-    stroke="currentColor"
-  >
-    <path 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      strokeWidth={2} 
-      d="M5 13l4 4L19 7" 
-    />
-  </svg>
-);
 
 export default BookingPage;
