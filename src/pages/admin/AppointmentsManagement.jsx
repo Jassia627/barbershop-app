@@ -261,50 +261,58 @@ const AppointmentsManagement = () => {
     }
   };
 
-  const fetchAppointments = async () => {
-    try {
-      const q = query(
-        collection(db, "appointments"),
-        where("shopId", "==", user.shopId)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const appointmentsData = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          date: data.date instanceof Timestamp ? 
-            data.date.toDate() : 
-            new Date(data.date)
-        };
-      });
-      
-      // Calcular estadísticas
-      const allAppointments = appointmentsData.sort((a, b) => b.date - a.date);
-      const todayAppointments = allAppointments.filter(apt => isToday(apt.date));
-      const pendingCount = allAppointments.filter(apt => apt.status === 'pending').length;
-      const confirmedCount = allAppointments.filter(apt => apt.status === 'confirmed').length;
-      const completedCount = allAppointments.filter(apt => apt.status === 'completed').length;
-      const cancelledCount = allAppointments.filter(apt => apt.status === 'cancelled').length;
+  // En AppointmentsManagement.jsx
 
-      setStats({
-        total: allAppointments.length,
-        pending: pendingCount,
-        confirmed: confirmedCount,
-        completed: completedCount,
-        cancelled: cancelledCount,
-        today: todayAppointments.length,
-      });
-      
-      setAppointments(allAppointments);
-    } catch (error) {
-      console.error("Error fetching appointments:", error);
-      toast.error("Error al cargar las citas");
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchAppointments = async () => {
+  if (!user?.shopId) return;
+
+  try {
+    // Consulta más simple que solo usa shopId
+    const q = query(
+      collection(db, "appointments"),
+      where("shopId", "==", user.shopId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const appointmentsData = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date),
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt)
+      };
+    });
+
+    // Ordenar los datos en el cliente
+    const sortedAppointments = appointmentsData.sort((a, b) => {
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    // Calcular estadísticas
+    const todayAppointments = sortedAppointments.filter(apt => isToday(apt.date));
+    const pendingCount = sortedAppointments.filter(apt => apt.status === 'pending').length;
+    const confirmedCount = sortedAppointments.filter(apt => apt.status === 'confirmed').length;
+    const completedCount = sortedAppointments.filter(apt => apt.status === 'completed').length;
+    const cancelledCount = sortedAppointments.filter(apt => apt.status === 'cancelled').length;
+
+    setStats({
+      total: sortedAppointments.length,
+      pending: pendingCount,
+      confirmed: confirmedCount,
+      completed: completedCount,
+      cancelled: cancelledCount,
+      today: todayAppointments.length,
+    });
+    
+    setAppointments(sortedAppointments);
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
+    toast.error("Error al cargar las citas");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
