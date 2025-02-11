@@ -187,7 +187,7 @@ const BookingPage = () => {
   const getWhatsAppLink = (phone, message) => {
     const formattedPhone = phone.replace(/\D/g, '');
     const encodedMessage = encodeURIComponent(message);
-    return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
+    return `https://wa.me/+57${formattedPhone}?text=${encodedMessage}`;
   };
 
   const handleSubmit = async (e) => {
