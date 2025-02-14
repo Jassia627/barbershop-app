@@ -1,4 +1,5 @@
 // src\pages\admin\Dashboard.jsx
+import ShareBookingLink from '../../components/common/ShareBookingLink';
 import React, { useState, useEffect } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../firebase/config";
@@ -135,7 +136,7 @@ const AdminDashboard = () => {
       </h3>
       
       {/* Tabla para pantallas medianas y grandes */}
-      <div className="hiddenoverflow-x-auto bg-white dark:bg-gray-800 rounded-lg">
+      <div className="hidden md:block overflow-x-auto bg-white dark:bg-gray-800 rounded-lg">
       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead className="bg-gray-50 dark:bg-gray-900">
           <tr>
@@ -273,7 +274,9 @@ const AdminDashboard = () => {
           {user?.shopName}
         </p>
       </div>
-
+      <div className="mb-6">
+  <ShareBookingLink />
+</div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           {
