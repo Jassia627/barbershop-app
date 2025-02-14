@@ -16,6 +16,7 @@ import {
   ArrowDownCircle
 } from 'lucide-react';
 import { CurrencyInput } from '../../components/common/MoneyInput';
+import formatMoney from '../../utils/format';
 
 const Expenses = () => {
   const { user } = useAuth();
@@ -172,17 +173,19 @@ const Expenses = () => {
             <h3 className="text-gray-500 text-sm">Gastos Mensuales</h3>
             <CalendarClock className="text-blue-500" size={24} />
           </div>
-          <p className="text-2xl font-bold text-gray-900">${stats.totalMonthly.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-gray-900">{formatMoney(stats.totalMonthly)}</p>
           <p className="text-sm text-gray-500">{stats.monthlyCount} gastos</p>
         </div>
+        
+
 
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-gray-500 text-sm">Gastos Inesperados</h3>
             <AlertCircle className="text-orange-500" size={24} />
           </div>
-          <p className="text-2xl font-bold text-gray-900">${stats.totalUnexpected.toFixed(2)}</p>
-          <p className="text-sm text-gray-500">{stats.unexpectedCount} gastos</p>
+          <p className="text-2xl font-bold text-gray-900">{formatMoney(stats.totalUnexpected)}</p>
+          <p className="text-sm text-gray-500">{formatMoney(stats.totalUnexpected)}</p>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-md">
@@ -191,7 +194,7 @@ const Expenses = () => {
             <ArrowUpCircle className="text-red-500" size={24} />
           </div>
           <p className="text-2xl font-bold text-gray-900">
-            ${(stats.totalMonthly + stats.totalUnexpected).toFixed(2)}
+            {formatMoney(stats.totalMonthly + stats.totalUnexpected)}
           </p>
           <p className="text-sm text-gray-500">{stats.monthlyCount + stats.unexpectedCount} gastos</p>
         </div>
@@ -202,7 +205,7 @@ const Expenses = () => {
             <Calculator className="text-green-500" size={24} />
           </div>
           <p className="text-2xl font-bold text-gray-900">
-            ${(stats.totalMonthly / (stats.monthlyCount || 1)).toFixed(2)}
+            {formatMoney(stats.totalMonthly / (stats.monthlyCount || 1))}
           </p>
           <p className="text-sm text-gray-500">por gasto mensual</p>
         </div>
@@ -269,7 +272,7 @@ const Expenses = () => {
                 {new Date(expense.date).toLocaleDateString()}
               </td>
               <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">
-                ${expense.amount.toFixed(2)}
+                {formatMoney(expense.amount)}
               </td>
               <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                 <button

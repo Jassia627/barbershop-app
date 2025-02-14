@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { Check, X, Clock, DollarSign, Calendar, CreditCard, User, Scissors, FileText } from 'lucide-react';
+import formatMoney from '../../utils/format'; 
 
 const HaircutApprovals = () => {
   const { user } = useAuth();
@@ -142,7 +143,7 @@ const HaircutApprovals = () => {
                     ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}
                   >
                     <DollarSign className="w-4 h-4" />
-                    <span className="text-sm">Precio: ${service.price.toFixed(2)}</span>
+                    <span className="text-sm">Precio: {formatMoney(service.price)}</span>
                   </div>
                   <div className={`flex items-center gap-2 
                     ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}
