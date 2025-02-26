@@ -457,7 +457,7 @@ const Expenses = () => {
                 </label>
                 <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-[#8b7355]">$</span>
-
+ 
                   <CurrencyInput
                   value={formData.amount}
                   onValueChange={(value) => setFormData({...formData, amount: value})}
