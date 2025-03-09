@@ -122,7 +122,7 @@ const BarbersManagement = () => {
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 transition-opacity duration-500 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         {/* Encabezado */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 animate-fade-in-down" style={{ animationDelay: '100ms' }}>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -189,7 +189,7 @@ const BarbersManagement = () => {
                 </button>
               </div>
               
-              <button
+            <button
                 onClick={() => {
                   setSearchTerm('');
                   setStatusFilter('all');
@@ -198,7 +198,7 @@ const BarbersManagement = () => {
                 title="Limpiar filtros"
               >
                 <RefreshCw className="h-5 w-5 text-gray-600 dark:text-gray-300" strokeWidth={2.5} />
-              </button>
+            </button>
             </div>
           </div>
         </div>
@@ -240,11 +240,11 @@ const BarbersManagement = () => {
                       }`}>
                         <Users className="h-6 w-6" strokeWidth={2.5} />
                       </div>
-                      <div>
+                  <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{barber.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
-                          <BarberStatus status={barber.status} />
-                        </div>
+                    <BarberStatus status={barber.status} />
+                  </div>
                       </div>
                     </div>
                     
@@ -262,17 +262,17 @@ const BarbersManagement = () => {
                     </div>
                     
                     <div className="flex flex-wrap gap-2 mt-4">
-                      <button
-                        onClick={() => handleEdit(barber)}
+                    <button
+                      onClick={() => handleEdit(barber)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/30 transition-colors"
-                      >
+                    >
                         <Edit className="h-4 w-4" strokeWidth={2.5} />
                         <span>Editar</span>
-                      </button>
+                    </button>
                       
-                      {barber.status === 'pending' && (
-                        <button
-                          onClick={() => approveBarber(barber.id)}
+                    {barber.status === 'pending' && (
+                      <button
+                        onClick={() => approveBarber(barber.id)}
                           className="flex items-center gap-1 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/30 transition-colors"
                         >
                           <CheckCircle className="h-4 w-4" strokeWidth={2.5} />
@@ -302,13 +302,13 @@ const BarbersManagement = () => {
                         )}
                       </button>
 
-                      <button
+                    <button
                         onClick={() => handleDelete(barber.id)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800/30 transition-colors"
-                      >
+                    >
                         <Trash2 className="h-4 w-4" strokeWidth={2.5} />
                         <span>Eliminar</span>
-                      </button>
+                    </button>
                     </div>
                   </div>
                 </div>
