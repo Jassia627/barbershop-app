@@ -1,21 +1,17 @@
 // src/App.jsx
-import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
-import AppRoutes from './routes/AppRoutes';
-import { Toaster } from 'react-hot-toast';
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./modules/auth";
+import { ThemeProvider } from "./core/context/ThemeContext";
+import AppRoutes from "./core/routes/AppRoutes";
+import { Toaster } from "react-hot-toast";
 
 function App() {
+  console.log("App: Renderizando App.jsx");
   return (
     <AuthProvider>
       <BrowserRouter>
         <ThemeProvider>
-          <Toaster 
-            position="top-right"
-            toastOptions={{
-              className: 'dark:bg-gray-800 dark:text-white'
-            }}
-          />
+          <Toaster position="top-right" />
           <AppRoutes />
         </ThemeProvider>
       </BrowserRouter>

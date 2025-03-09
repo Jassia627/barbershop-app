@@ -1,0 +1,112 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Funciones auxiliares
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Lista blanca para consultar barberías disponibles (sin autenticación)
+    match /users/{userId} {
+      allow read: if true;
+      
+      // Crear nuevo usuario
+      allow create: if 
+        request.resource.data.keys().hasAll(['email', 'role', 'name']) &&
+        (request.resource.data.role == 'admin' || request.resource.data.role == 'barber');
+      
+      // Actualizar usuario existente
+      allow update: if isAuthenticated() &&
+        (request.auth.uid == userId || 
+        (getUserData().role == 'admin' && getUserData().shopId == resource.data.shopId));
+        
+      // Eliminar usuario
+      allow delete: if isAuthenticated() &&
+        getUserData().role == 'admin' &&
+        getUserData().shopId == resource.data.shopId;
+    }
+    
+    // Reglas para servicios
+    match /services/{serviceId} {
+      allow read: if true;  // Permitir lectura pública para mostrar servicios
+      allow write: if isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    // Reglas para cortes/servicios realizados
+    match /haircuts/{haircutId} {
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == resource.data.barberId || 
+         getUserData().role == 'admin');
+         
+      allow create: if isAuthenticated();
+      
+      allow update, delete: if isAuthenticated() && 
+        (request.auth.uid == resource.data.barberId || 
+         getUserData().role == 'admin');
+    }
+    
+    // Reglas para inventario (colección inventory)
+    match /inventory/{itemId} {
+      allow read: if isAuthenticated() && getUserData().role == 'admin';
+      allow write: if isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    // Reglas para productos (colección products)
+    match /products/{productId} {
+      allow read: if isAuthenticated() && getUserData().role == 'admin';
+      allow write: if isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    // Reglas para ventas del inventario
+    match /sales/{saleId} {
+      allow read: if isAuthenticated() && getUserData().role == 'admin';
+      allow write: if isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    // Reglas para gastos
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated() && getUserData().role == 'admin';
+      allow write: if isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    // Reglas para horarios
+    match /schedules/{scheduleId} {
+      allow read: if true;  // Permitir lectura pública para ver disponibilidad
+      allow write: if isAuthenticated() && 
+        (getUserData().role == 'admin' || 
+         request.auth.uid == request.resource.data.barberId);
+    }
+
+    // Reglas para citas
+    match /appointments/{appointmentId} {
+      // Permitir lectura pública para verificar disponibilidad
+      allow read: if true;
+      
+      // Permitir crear citas sin autenticación (clientes)
+      allow create: if 
+        request.resource.data.keys().hasAll([
+          'barberId', 
+          'clientName', 
+          'clientPhone',  
+          'date', 
+          'time',
+          'shopId'
+        ]) &&
+        request.resource.data.status == 'pending';
+      
+      // Permitir actualización solo a barberos y admin
+      allow update: if isAuthenticated() && 
+        (request.auth.uid == resource.data.barberId || 
+         getUserData().role == 'admin');
+      
+      // Permitir eliminación solo a admin
+      allow delete: if isAuthenticated() && 
+        getUserData().role == 'admin';
+    }
+  }
+} 

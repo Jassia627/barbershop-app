@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { logDebug, logError } from '../../core/utils/logger';
 import { 
   Calendar, 
   Clock, 
@@ -256,63 +257,61 @@ const AppointmentsManagement = () => {
       }));
       setBarbers(barbersData);
     } catch (error) {
-      console.error("Error fetching barbers:", error);
+      logError("Error fetching barbers:", error);
       toast.error("Error al cargar los barberos");
     }
   };
 
-  // En AppointmentsManagement.jsx
+  const fetchAppointments = async () => {
+    if (!user?.shopId) return;
 
-const fetchAppointments = async () => {
-  if (!user?.shopId) return;
+    try {
+      // Consulta más simple que solo usa shopId
+      const q = query(
+        collection(db, "appointments"),
+        where("shopId", "==", user.shopId)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const appointmentsData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date),
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt)
+        };
+      });
 
-  try {
-    // Consulta más simple que solo usa shopId
-    const q = query(
-      collection(db, "appointments"),
-      where("shopId", "==", user.shopId)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const appointmentsData = querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date),
-        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt)
-      };
-    });
+      // Ordenar los datos en el cliente
+      const sortedAppointments = appointmentsData.sort((a, b) => {
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
 
-    // Ordenar los datos en el cliente
-    const sortedAppointments = appointmentsData.sort((a, b) => {
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
+      // Calcular estadísticas
+      const todayAppointments = sortedAppointments.filter(apt => isToday(apt.date));
+      const pendingCount = sortedAppointments.filter(apt => apt.status === 'pending').length;
+      const confirmedCount = sortedAppointments.filter(apt => apt.status === 'confirmed').length;
+      const completedCount = sortedAppointments.filter(apt => apt.status === 'completed').length;
+      const cancelledCount = sortedAppointments.filter(apt => apt.status === 'cancelled').length;
 
-    // Calcular estadísticas
-    const todayAppointments = sortedAppointments.filter(apt => isToday(apt.date));
-    const pendingCount = sortedAppointments.filter(apt => apt.status === 'pending').length;
-    const confirmedCount = sortedAppointments.filter(apt => apt.status === 'confirmed').length;
-    const completedCount = sortedAppointments.filter(apt => apt.status === 'completed').length;
-    const cancelledCount = sortedAppointments.filter(apt => apt.status === 'cancelled').length;
-
-    setStats({
-      total: sortedAppointments.length,
-      pending: pendingCount,
-      confirmed: confirmedCount,
-      completed: completedCount,
-      cancelled: cancelledCount,
-      today: todayAppointments.length,
-    });
-    
-    setAppointments(sortedAppointments);
-  } catch (error) {
-    console.error("Error fetching appointments:", error);
-    toast.error("Error al cargar las citas");
-  } finally {
-    setLoading(false);
-  }
-};
+      setStats({
+        total: sortedAppointments.length,
+        pending: pendingCount,
+        confirmed: confirmedCount,
+        completed: completedCount,
+        cancelled: cancelledCount,
+        today: todayAppointments.length,
+      });
+      
+      setAppointments(sortedAppointments);
+    } catch (error) {
+      logError("Error fetching appointments:", error);
+      toast.error("Error al cargar las citas");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
@@ -335,7 +334,7 @@ const fetchAppointments = async () => {
         icon: newStatus === 'confirmed' ? '✅' : newStatus === 'completed' ? '🎉' : '❌'
       });
     } catch (error) {
-      console.error("Error updating appointment:", error);
+      logError("Error updating appointment:", error);
       toast.error("Error al actualizar la cita");
     }
   };
