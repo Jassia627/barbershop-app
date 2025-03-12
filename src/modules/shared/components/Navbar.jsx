@@ -99,8 +99,37 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
+      const userName = user.name; // Guardamos el nombre antes de cerrar sesión
       await logout();
-      toast.success("Sesión cerrada exitosamente");
+      
+      toast.custom((t) => (
+        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'}
+          max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto
+          flex ring-1 ring-black ring-opacity-5 p-4 items-center gap-3`}>
+          <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900 rounded-full p-2">
+            <LogOut className="h-6 w-6 text-blue-600 dark:text-blue-300" />
+          </div>
+          <div className="flex-1 w-0">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              ¡Hasta pronto, {userName}!
+            </p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Esperamos verte de nuevo pronto
+            </p>
+          </div>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-shrink-0 rounded-md text-gray-400 hover:text-gray-500 
+              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            <span className="sr-only">Cerrar</span>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      ), {
+        duration: 3000,
+      });
+      
       navigate("/login");
       setIsMenuOpen(false);
       setIsUserMenuOpen(false);

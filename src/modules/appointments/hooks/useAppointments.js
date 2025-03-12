@@ -1,7 +1,15 @@
 // src/modules/appointments/hooks/useAppointments.js
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../auth';
-import { fetchBarbers, fetchSchedules, fetchTakenSlots, fetchAppointments, createAppointment, updateAppointmentStatus } from '../services/appointmentService';
+import { 
+  fetchBarbers, 
+  fetchSchedules, 
+  fetchTakenSlots, 
+  fetchAppointments, 
+  createAppointment, 
+  updateAppointmentStatus,
+  saveHaircutHistory
+} from '../services/appointmentService';
 import { fetchServices } from '../../services/services/serviceService';
 import { format, addMinutes, isValid, startOfDay, toDate, parseISO } from 'date-fns'; // Reimportar format
 import { toast } from 'react-hot-toast';
@@ -212,13 +220,12 @@ export const useAppointments = (shopIdParam) => {
     }
   };
 
-  const filterAppointments = async (barberId) => {
+  const filterAppointments = async (barberId = null) => {
     try {
       setLoading(true);
-      const appointmentData = await fetchAppointments(shopId, barberId || undefined);
-      logDebug("useAppointments: Appointments filtrados por barbero:", appointmentData);
-      setAppointments(appointmentData);
-      setSelectedBarber(barberId ? barbers.find(b => b.id === barberId) || null : null);
+      const appointmentsData = await fetchAppointments(shopId, barberId);
+      setAppointments(appointmentsData);
+      setSelectedBarber(barberId ? barbers.find(b => b.id === barberId) : null);
     } catch (error) {
       logError("useAppointments: Error al filtrar citas");
       toast.error("Error al filtrar citas", { duration: 4000 });
@@ -230,22 +237,61 @@ export const useAppointments = (shopIdParam) => {
   const approveAppointment = async (appointmentId) => {
     try {
       await updateAppointmentStatus(appointmentId, 'confirmed');
-      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'confirmed' } : a));
-      toast.success("Cita aprobada", { duration: 4000 });
+      toast.success('Cita confirmada con éxito');
+      await filterAppointments();
+      return true;
     } catch (error) {
-      logError("useAppointments: Error al aprobar cita");
-      toast.error("Error al aprobar cita", { duration: 4000 });
+      logError("useAppointments: Error al aprobar cita", error);
+      toast.error("Error al confirmar la cita: " + error.message);
+      return false;
+    }
+  };
+
+  const completeAppointment = async (appointmentId) => {
+    try {
+      await updateAppointmentStatus(appointmentId, 'pending_review');
+      toast.success('Cita marcada como completada');
+      await filterAppointments();
+      return true;
+    } catch (error) {
+      logError("useAppointments: Error al completar cita", error);
+      toast.error("Error al marcar la cita como completada: " + error.message);
+      return false;
+    }
+  };
+
+  const finishAppointment = async (appointment) => {
+    try {
+      // Primero actualizamos el estado de la cita
+      await updateAppointmentStatus(appointment.id, 'finished');
+      
+      // Luego guardamos en el historial
+      await saveHaircutHistory(appointment);
+      
+      toast.success('Cita finalizada y guardada en el historial');
+      await filterAppointments();
+      return true;
+    } catch (error) {
+      logError("useAppointments: Error al finalizar cita", error);
+      toast.error("Error al finalizar la cita: " + error.message);
+      return false;
     }
   };
 
   const cancelAppointment = async (appointmentId) => {
+    if (!window.confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
+      return false;
+    }
+
     try {
       await updateAppointmentStatus(appointmentId, 'cancelled');
-      setAppointments(prev => prev.filter(a => a.id !== appointmentId));
-      toast.success("Cita cancelada", { duration: 4000 });
+      toast.success('Cita cancelada con éxito');
+      await filterAppointments();
+      return true;
     } catch (error) {
-      logError("useAppointments: Error al cancelar cita");
-      toast.error("Error al cancelar cita", { duration: 4000 });
+      logError("useAppointments: Error al cancelar cita", error);
+      toast.error("Error al cancelar la cita: " + error.message);
+      return false;
     }
   };
 
@@ -263,6 +309,8 @@ export const useAppointments = (shopIdParam) => {
     saveAppointment,
     filterAppointments,
     approveAppointment,
-    cancelAppointment
+    cancelAppointment,
+    completeAppointment,
+    finishAppointment
   };
 };

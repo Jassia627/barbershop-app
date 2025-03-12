@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Mail, Lock, Sun, Moon, Scissors, ChevronRight } from 'lucide-react';
+import { Mail, Lock, Sun, Moon, Scissors, ChevronRight, X } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '../../../core/firebase/config';
 
 const Login = () => {
   const { login, user } = useAuth();
@@ -31,15 +33,44 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(credentials.email, credentials.password);
+      const userCredential = await login(credentials.email, credentials.password);
+      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+      const userData = userDoc.data();
+      
+      toast.custom((t) => (
+        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'}
+          max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto
+          flex ring-1 ring-black ring-opacity-5 p-4 items-center gap-3`}>
+          <div className="flex-shrink-0 bg-green-100 dark:bg-green-900 rounded-full p-2">
+            <Scissors className="h-6 w-6 text-green-600 dark:text-green-300" />
+          </div>
+          <div className="flex-1 w-0">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              ¡Bienvenido de nuevo, {userData.name}!
+            </p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Nos alegra verte otra vez
+            </p>
+          </div>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-shrink-0 rounded-md text-gray-400 hover:text-gray-500 
+              focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+          >
+            <span className="sr-only">Cerrar</span>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      ), {
+        duration: 4000,
+      });
+      
       // No hacemos la redirección aquí, se manejará en el useEffect
-      toast.success("Inicio de sesión exitoso");
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
       toast.error("Error al iniciar sesión: " + (error.message || "Credenciales inválidas"));
       setLoading(false);
     }
-    // No desactivamos el loading aquí, se desactivará cuando se complete la redirección
   };
 
   // Si el usuario ya está autenticado, no mostramos el formulario de login

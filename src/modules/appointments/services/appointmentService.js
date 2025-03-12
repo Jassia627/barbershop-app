@@ -1,6 +1,7 @@
 // src/modules/appointments/services/appointmentService.js
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../../../core/firebase/config';
+import { format } from 'date-fns';
 
 export const fetchBarbers = async (shopId) => {
   const q = query(
@@ -43,15 +44,62 @@ export const fetchTakenSlots = async (barberId, date) => {
 };
 
 export const fetchAppointments = async (shopId, barberId = null) => {
-  const constraints = [
-    where("shopId", "==", shopId),
-    where("status", "in", ["pending", "confirmed"])
-  ];
-  if (barberId) constraints.push(where("barberId", "==", barberId));
-  
-  const q = query(collection(db, "appointments"), ...constraints);
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  try {
+    let constraints = [
+      where("shopId", "==", shopId),
+      where("status", "in", ["pending", "confirmed", "completed", "pending_review", "finished"])
+    ];
+    
+    if (barberId) {
+      constraints.push(where("barberId", "==", barberId));
+    }
+    
+    const q = query(
+      collection(db, "appointments"), 
+      ...constraints
+    );
+    
+    const snapshot = await getDocs(q);
+    const appointments = snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Generar mensaje de WhatsApp
+      const whatsappMessage = `Hola, tienes una cita programada para el ${format(data.date.toDate(), 'dd/MM/yyyy')} a las ${data.time} con el barbero ${data.barberName}. Estado: ${getStatusText(data.status)}`;
+      
+      return {
+        id: doc.id,
+        ...data,
+        date: data.date.toDate(),
+        whatsappMessage
+      };
+    });
+
+    // Ordenamos los resultados en memoria
+    return appointments.sort((a, b) => a.date - b.date);
+  } catch (error) {
+    console.error("Error al obtener citas:", error);
+    if (error.code === 'failed-precondition') {
+      console.log("Para crear el índice necesario, visita:", error.message.split("You can create it here: ")[1]);
+    }
+    throw error;
+  }
+};
+
+// Función auxiliar para obtener el texto del estado
+const getStatusText = (status) => {
+  switch (status) {
+    case 'pending':
+      return 'Pendiente';
+    case 'confirmed':
+      return 'Confirmada';
+    case 'completed':
+      return 'Completada';
+    case 'pending_review':
+      return 'Pendiente de revisión';
+    case 'finished':
+      return 'Finalizada';
+    default:
+      return 'Desconocido';
+  }
 };
 
 export const createAppointment = async (appointmentData) => {
@@ -64,8 +112,31 @@ export const createAppointment = async (appointmentData) => {
   });
 };
 
-export const updateAppointmentStatus = async (appointmentId, status) => {
-  await updateDoc(doc(db, "appointments", appointmentId), { status });
+export const updateAppointmentStatus = async (appointmentId, status, additionalData = {}) => {
+  try {
+    if (!appointmentId) {
+      throw new Error('ID de cita no proporcionado');
+    }
+
+    const appointmentRef = doc(db, "appointments", appointmentId);
+    const updateData = {
+      status,
+      updatedAt: Timestamp.now(),
+      ...additionalData
+    };
+
+    if (status === 'completed') {
+      updateData.completedAt = Timestamp.now();
+    } else if (status === 'finished') {
+      updateData.finishedAt = Timestamp.now();
+    }
+
+    await updateDoc(appointmentRef, updateData);
+    return true;
+  } catch (error) {
+    console.error("Error al actualizar el estado de la cita:", error);
+    throw new Error(`Error al actualizar la cita: ${error.message}`);
+  }
 };
 
 export const saveSchedule = async (scheduleData) => {
@@ -81,5 +152,55 @@ export const saveSchedule = async (scheduleData) => {
       daysOff: data.daysOff || []
     });
     return { id: docRef.id, ...data };
+  }
+};
+
+// Función para guardar el historial de cortes
+export const saveHaircutHistory = async (appointmentData) => {
+  try {
+    const historyData = {
+      appointmentId: appointmentData.id,
+      barberId: appointmentData.barberId,
+      barberName: appointmentData.barberName,
+      clientName: appointmentData.clientName,
+      serviceName: appointmentData.serviceName,
+      price: appointmentData.price,
+      date: appointmentData.date,
+      shopId: appointmentData.shopId,
+      createdAt: Timestamp.now()
+    };
+
+    await addDoc(collection(db, "haircut_history"), historyData);
+    return true;
+  } catch (error) {
+    console.error("Error al guardar el historial de cortes:", error);
+    throw error;
+  }
+};
+
+// Función para obtener el historial de cortes
+export const fetchHaircutHistory = async (shopId, barberId = null) => {
+  try {
+    let constraints = [where("shopId", "==", shopId)];
+    
+    if (barberId) {
+      constraints.push(where("barberId", "==", barberId));
+    }
+    
+    const q = query(
+      collection(db, "haircut_history"),
+      ...constraints,
+      orderBy("date", "desc")
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      date: doc.data().date.toDate()
+    }));
+  } catch (error) {
+    console.error("Error al obtener el historial de cortes:", error);
+    throw error;
   }
 };
