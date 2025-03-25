@@ -48,6 +48,7 @@ const Navbar = () => {
     { to: "/admin/services", text: "Servicios", icon: Scissors },
     { to: "/admin/new-haircut", text: "Nuevo Corte", icon: PlusCircle },
     { to: "/admin/pending-haircuts", text: "Cortes Pendientes", icon: CheckCircle2 },
+    { to: "/admin/haircut-history", text: "Historial", icon: History },
     { to: "/admin/inventory", text: "Inventario", icon: Package },
     { to: "/admin/expenses", text: "Gastos", icon: DollarSign },
   ];
@@ -57,7 +58,7 @@ const Navbar = () => {
     { to: "/barber/appointments", text: "Mis Citas", icon: CalendarDays },
     { to: "/barber/schedule", text: "Mi Horario", icon: Clock },
     { to: "/barber/new-haircut", text: "Registrar Corte", icon: Scissors },
-    { to: "/barber/haircuts", text: "Historial", icon: History },
+    { to: "/barber/haircut-history", text: "Historial", icon: History },
     { to: "/barber/profile", text: "Mi Perfil", icon: UserCircle },
   ];
 

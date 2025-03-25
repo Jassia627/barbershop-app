@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { logDebug } from '../utils/logger';
+import HaircutHistory from '../../modules/services/pages/HaircutHistory';
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -81,6 +82,7 @@ const AppRoutes = () => {
               <Route path="admin/services" element={<ServicesManagement />} />
               <Route path="admin/new-haircut" element={<AdminNewHaircut />} />
               <Route path="admin/pending-haircuts" element={<PendingHaircuts />} />
+              <Route path="admin/haircut-history" element={<HaircutHistory />} />
               <Route path="admin/inventory" element={<Inventory />} />
               <Route path="admin/sales" element={<Sales />} />
               <Route path="admin/expenses" element={<Expenses />} />
@@ -93,7 +95,7 @@ const AppRoutes = () => {
               <Route path="barber/schedule" element={<ScheduleManagement />} />
               <Route path="barber/appointments" element={<BarberAppointments />} />
               <Route path="barber/new-haircut" element={<NewHaircut />} />
-              <Route path="barber/haircuts" element={<BarberHaircutHistory />} />
+              <Route path="barber/haircut-history" element={<HaircutHistory />} />
             </>
           )}
         </Routes></div></div>}

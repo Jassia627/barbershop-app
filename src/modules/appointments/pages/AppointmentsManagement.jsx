@@ -11,11 +11,6 @@ const AppointmentsManagement = () => {
   const { barbers, appointments = [], selectedBarber, loading, filterAppointments, approveAppointment, cancelAppointment } = useAppointments();
   const [filterStatus, setFilterStatus] = useState('all');
   
-  // Filtrar las citas según el estado seleccionado
-  const filteredAppointments = appointments.filter(appointment => 
-    filterStatus === 'all' ? true : appointment.status === filterStatus
-  );
-
   console.log("AppointmentsManagement: Renderizando, appointments:", appointments, "barbers:", barbers, "loading:", loading);
 
   if (loading) return <div className="flex justify-center items-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" /></div>;
@@ -117,10 +112,10 @@ const AppointmentsManagement = () => {
           </select>
         </div>
         <div className="space-y-4">
-          {filteredAppointments.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400">No hay citas que coincidan con los filtros seleccionados.</p>
+          {appointments.length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400">No hay citas pendientes o confirmadas.</p>
           ) : (
-            filteredAppointments.map(appointment => (
+            appointments.map(appointment => (
               <AppointmentCard
                 key={appointment.id}
                 appointment={appointment}

@@ -1,6 +1,6 @@
 // src/modules/appointments/components/AppointmentCard.jsx
 import React from 'react';
-import { MessageSquare, Check, X, Clock, CheckCircle2, CheckCircle, XCircle, CheckSquare, MessageCircle } from 'lucide-react';
+import { MessageSquare, Check, X, Clock, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -12,27 +12,35 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
   };
 
   const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400',
-      confirmed: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400',
-      cancelled: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400',
-      completed: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400',
-      pending_review: 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-400',
-      finished: 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400'
-    };
-    return colors[status] || colors.pending;
+    switch (status) {
+      case 'confirmed':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+      case 'completed':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
+      case 'pending_review':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300';
+      case 'finished':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/40 dark:text-gray-300';
+      case 'pending':
+      default:
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
+    }
   };
 
   const getStatusText = (status) => {
-    const texts = {
-      pending: 'Pendiente',
-      confirmed: 'Confirmada',
-      cancelled: 'Cancelada',
-      completed: 'Completada',
-      pending_review: 'Esperando Revisión',
-      finished: 'Finalizada'
-    };
-    return texts[status] || 'Pendiente';
+    switch (status) {
+      case 'confirmed':
+        return 'Confirmada';
+      case 'completed':
+        return 'Completada';
+      case 'pending_review':
+        return 'Pendiente de revisión';
+      case 'finished':
+        return 'Finalizada';
+      case 'pending':
+      default:
+        return 'Pendiente';
+    }
   };
 
   return (
@@ -66,72 +74,59 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {appointment.status === 'pending' && !isBarber && (
-          <>
-            <button
-              onClick={() => onApprove(appointment.id)}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg"
-            >
-              <CheckCircle className="w-4 h-4 mr-1" />
-              Confirmar
-            </button>
-            <button
-              onClick={() => onCancel(appointment.id)}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg"
-            >
-              <XCircle className="w-4 h-4 mr-1" />
-              Cancelar
-            </button>
-          </>
-        )}
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Botones para el administrador */}
+          {!isBarber && appointment.status === 'pending' && onApprove && onCancel && (
+            <>
+              <button
+                onClick={() => onApprove(appointment.id)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                <Check className="h-4 w-4" />
+                Confirmar
+              </button>
+              <button
+                onClick={() => onCancel(appointment.id)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                <X className="h-4 w-4" />
+                Cancelar
+              </button>
+            </>
+          )}
 
-        {appointment.status === 'confirmed' && isBarber && (
-          <button
-            onClick={() => onComplete(appointment.id)}
-            className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg"
-          >
-            <CheckSquare className="w-4 h-4 mr-1" />
-            Marcar como Completado
-          </button>
-        )}
-
-        {appointment.status === 'pending_review' && !isBarber && (
-          <>
+          {/* Botón para el barbero */}
+          {isBarber && appointment.status === 'confirmed' && onComplete && (
             <button
-              onClick={() => onFinish(appointment.id)}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg"
+              onClick={() => onComplete(appointment.id)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              <CheckSquare className="w-4 h-4 mr-1" />
-              Finalizar
+              <Clock className="h-4 w-4" />
+              Marcar como completado
             </button>
-            <button
-              onClick={() => onCancel(appointment.id)}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg"
-            >
-              <XCircle className="w-4 h-4 mr-1" />
-              Rechazar
-            </button>
-          </>
-        )}
+          )}
 
-        {appointment.status === 'confirmed' && (
-          <a
-            href={`https://wa.me/${appointment.clientPhone}?text=${encodeURIComponent(
-              `¡Hola ${appointment.clientName}! Recordatorio de tu cita para ${format(
-                appointment.date,
-                "EEEE d 'de' MMMM",
-                { locale: es }
-              )} a las ${appointment.time} con ${appointment.barberName}.`
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center px-3 py-2 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg"
-          >
-            <MessageCircle className="w-4 h-4 mr-1" />
-            WhatsApp
-          </a>
-        )}
+          {/* Botón para el administrador - finalizar cita */}
+          {!isBarber && appointment.status === 'pending_review' && onFinish && (
+            <button
+              onClick={() => onFinish(appointment)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Finalizar y guardar
+            </button>
+          )}
+        </div>
+
+        {/* Botón de WhatsApp siempre visible */}
+        <button
+          onClick={sendWhatsApp}
+          className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+        >
+          <MessageSquare className="h-4 w-4" />
+          WhatsApp
+        </button>
       </div>
     </div>
   );

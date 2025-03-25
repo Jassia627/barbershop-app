@@ -109,16 +109,23 @@ const Inventory = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Encabezado con navegación */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Inventario</h1>
+          <div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
+              Gestión de Inventario
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+              {user?.shopName}
+            </p>
+          </div>
         </div>
         <Link 
           to="/admin/sales" 
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md hover:shadow-lg"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all duration-300 shadow-md"
         >
           <ShoppingBag className="h-5 w-5" />
           <span className="font-medium">Vender Productos</span>
@@ -126,47 +133,53 @@ const Inventory = () => {
       </div>
       
       {/* Estadísticas rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center gap-4">
-          <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
-            <Package className="h-6 w-6 text-blue-600 dark:text-blue-300" />
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Total Productos</p>
-            <p className="text-xl font-bold">{products?.length || 0}</p>
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center gap-4">
-          <div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-full">
-            <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-300" />
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Stock Bajo</p>
-            <p className="text-xl font-bold">
-              {products?.filter(p => p.stock <= p.minStock).length || 0}
-            </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-xl">
+              <Package className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Productos</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{products?.length || 0}</p>
+            </div>
           </div>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center gap-4">
-          <div className="bg-green-100 dark:bg-green-900 p-3 rounded-full">
-            <ShoppingBag className="h-6 w-6 text-green-600 dark:text-green-300" />
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-4">
+            <div className="bg-yellow-100 dark:bg-yellow-900/30 p-4 rounded-xl">
+              <AlertTriangle className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Stock Bajo</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {products?.filter(p => p.stock <= p.minStock).length || 0}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Valor Inventario</p>
-            <p className="text-xl font-bold">
-              ${products?.reduce((sum, p) => sum + (p.price * p.stock), 0).toLocaleString() || 0}
-            </p>
+        </div>
+        
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-4">
+            <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-xl">
+              <ShoppingBag className="h-8 w-8 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Valor Inventario</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                ${products?.reduce((sum, p) => sum + (p.price * p.stock), 0).toLocaleString() || 0}
+              </p>
+            </div>
           </div>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Formulario de producto */}
         <div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
               <Plus className="h-5 w-5 text-blue-500" />
               {selectedProduct ? 'Editar Producto' : 'Agregar Producto'}
             </h2>
@@ -176,21 +189,21 @@ const Inventory = () => {
         
         {/* Lista de productos */}
         <div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
               <Package className="h-5 w-5 text-blue-500" />
               Productos
             </h2>
             
             {/* Búsqueda y filtros */}
-            <div className="mb-4 space-y-3">
+            <div className="mb-6 space-y-4">
               <div className="relative">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar productos..."
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-gray-700/50 transition-all duration-200"
                 />
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               </div>
@@ -198,10 +211,10 @@ const Inventory = () => {
               <div className="flex items-center">
                 <button
                   onClick={() => setFilterLowStock(!filterLowStock)}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     filterLowStock 
-                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' 
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
                   <Filter className="h-4 w-4" />
@@ -211,7 +224,7 @@ const Inventory = () => {
             </div>
             
             {/* Lista de productos */}
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
               {filteredProducts.length > 0 ? (
                 filteredProducts.map(product => (
                   <div key={product.id} className="transition-all duration-200 hover:translate-x-1">
@@ -220,8 +233,8 @@ const Inventory = () => {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <div className="text-center py-12 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500 dark:text-gray-400">
                     {searchTerm || filterLowStock 
                       ? 'No se encontraron productos con los filtros actuales' 
