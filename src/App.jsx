@@ -6,18 +6,26 @@ import AppRoutes from "./core/routes/AppRoutes";
 import { Toaster } from "react-hot-toast";
 import { useEffect } from 'react';
 import { setupAppointmentNotifications } from './core/services/notificationService';
+import { logDebug } from './core/utils/logger';
 
 // Componente interno que usa useAuth
 function AppContent() {
   const { user } = useAuth();
 
   useEffect(() => {
+    let unsubscribe = null;
+
     if (user?.role === 'admin') {
-      const unsubscribe = setupAppointmentNotifications(user);
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
+      logDebug('Configurando notificaciones para:', user);
+      unsubscribe = setupAppointmentNotifications(user);
     }
+
+    return () => {
+      if (unsubscribe) {
+        logDebug('Limpiando listener de notificaciones');
+        unsubscribe();
+      }
+    };
   }, [user]);
 
   return (
@@ -30,7 +38,6 @@ function AppContent() {
 
 // Componente principal que provee el contexto
 function App() {
-  console.log("App: Renderizando App.jsx");
   return (
     <AuthProvider>
       <BrowserRouter>
