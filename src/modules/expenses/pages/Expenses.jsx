@@ -13,6 +13,7 @@ import {
   RefreshCw,
   PlusCircle
 } from 'lucide-react';
+import formatMoney from '../../../utils/format';
 import { useNavigate } from 'react-router-dom';
 
 const Expenses = () => {
@@ -109,85 +110,88 @@ const Expenses = () => {
 
         {/* Tarjeta de resumen */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 mb-8">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full">
-              <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+            {/* Total de gastos */}
+            <div className="flex items-center gap-4">
+              <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full">
+                <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total de Gastos</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {formatMoney(totalExpenses)}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total de Gastos</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ${totalExpenses.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
 
-          {/* Filtros y búsqueda */}
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="relative w-full md:w-auto md:flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar gastos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 transition-all"
-              />
-            </div>
-            
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                <button
-                  onClick={() => setDateFilter('all')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    dateFilter === 'all' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  Todos
-                </button>
-                <button
-                  onClick={() => setDateFilter('today')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    dateFilter === 'today' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  Hoy
-                </button>
-                <button
-                  onClick={() => setDateFilter('week')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    dateFilter === 'week' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  Semana
-                </button>
-                <button
-                  onClick={() => setDateFilter('month')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    dateFilter === 'month' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  Mes
-                </button>
+            {/* Filtros y búsqueda */}
+            <div className="flex-1 flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar gastos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 transition-all"
+                />
               </div>
               
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setDateFilter('all');
-                }}
-                className="p-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                title="Limpiar filtros"
-              >
-                <RefreshCw className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                  <button
+                    onClick={() => setDateFilter('all')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      dateFilter === 'all' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    onClick={() => setDateFilter('today')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      dateFilter === 'today' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    onClick={() => setDateFilter('week')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      dateFilter === 'week' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Semana
+                  </button>
+                  <button
+                    onClick={() => setDateFilter('month')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      dateFilter === 'month' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Mes
+                  </button>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setDateFilter('all');
+                  }}
+                  className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
+                  title="Limpiar filtros"
+                >
+                  <RefreshCw className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

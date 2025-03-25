@@ -3,8 +3,8 @@ import React from 'react';
 import { User, Scissors, DollarSign } from 'lucide-react';
 
 const HaircutCard = ({ haircut, onApprove, onReject }) => (
-  <div className="flex items-center justify-between p-4 rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-    <div className="flex items-center gap-3">
+  <div className="flex flex-col p-4 rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+    <div className="flex items-center gap-3 mb-4">
       <User className="h-6 w-6 text-gray-400" />
       <div>
         <p className="font-medium text-gray-900 dark:text-white">{haircut.clientName}</p>
@@ -20,16 +20,16 @@ const HaircutCard = ({ haircut, onApprove, onReject }) => (
         </p>
       </div>
     </div>
-    <div className="flex gap-2">
+    <div className="flex gap-2 mt-auto">
       <button
         onClick={() => onApprove(haircut.id)}
-        className="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600"
+        className="flex-1 px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
       >
         Aprobar
       </button>
       <button
         onClick={() => onReject(haircut.id)}
-        className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600"
+        className="flex-1 px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
       >
         Rechazar
       </button>
