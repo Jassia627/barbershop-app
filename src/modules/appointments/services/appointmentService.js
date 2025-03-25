@@ -2,6 +2,9 @@
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../../../core/firebase/config';
 import { format } from 'date-fns';
+import { logDebug, logError } from '../../../core/utils/logger';
+import { sendNotification } from '../../../core/services/notificationService';
+import { es } from 'date-fns/locale';
 
 export const fetchBarbers = async (shopId) => {
   const q = query(
@@ -103,13 +106,34 @@ const getStatusText = (status) => {
 };
 
 export const createAppointment = async (appointmentData) => {
-  const { date, ...rest } = appointmentData;
-  return await addDoc(collection(db, "appointments"), {
-    ...rest,
-    date: Timestamp.fromDate(date),
-    createdAt: Timestamp.now(),
-    status: 'pending'
-  });
+  try {
+    // Asegurarnos de que la fecha sea un Timestamp
+    const appointment = {
+      ...appointmentData,
+      date: appointmentData.date instanceof Date ? Timestamp.fromDate(appointmentData.date) : Timestamp.fromMillis(appointmentData.date),
+      createdAt: Timestamp.now(),
+      status: 'pending'
+    };
+
+    const docRef = await addDoc(collection(db, "appointments"), appointment);
+    
+    // Formatear la fecha para la notificación
+    const appointmentDate = appointment.date.toDate();
+    
+    // Intentar enviar notificación
+    sendNotification({
+      title: '¡Nueva Cita Pendiente!',
+      body: `${appointment.clientName} ha solicitado una cita para ${format(appointmentDate, 'dd/MM/yyyy HH:mm', { locale: es })}`,
+      onClick: () => {
+        window.location.href = '/admin/appointments';
+      }
+    });
+
+    return { id: docRef.id, ...appointment };
+  } catch (error) {
+    logError('Error al crear la cita:', error);
+    throw error;
+  }
 };
 
 export const updateAppointmentStatus = async (appointmentId, status, additionalData = {}) => {
