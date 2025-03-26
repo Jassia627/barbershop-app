@@ -4,28 +4,46 @@ import { AuthProvider, useAuth } from "./modules/auth";
 import { ThemeProvider } from "./core/context/ThemeContext";
 import AppRoutes from "./core/routes/AppRoutes";
 import { Toaster } from "react-hot-toast";
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { setupAppointmentNotifications } from './core/services/notificationService';
 import { logDebug } from './core/utils/logger';
 
 // Componente interno que usa useAuth
 function AppContent() {
   const { user } = useAuth();
+  const notificationSetupRef = useRef(false);
+  const unsubscribeRef = useRef(null);
 
   useEffect(() => {
-    let unsubscribe = null;
-
-    if (user?.role === 'admin') {
-      logDebug('Configurando notificaciones para:', user);
-      unsubscribe = setupAppointmentNotifications(user);
+    // Limpiar el listener anterior si existe
+    if (unsubscribeRef.current) {
+      logDebug('Limpiando listener de notificaciones existente');
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
     }
 
-    return () => {
-      if (unsubscribe) {
-        logDebug('Limpiando listener de notificaciones');
-        unsubscribe();
-      }
-    };
+    // Solo configurar notificaciones para admin y solo una vez por sesión
+    if (user?.role === 'admin' && !notificationSetupRef.current) {
+      logDebug('Configurando notificaciones para admin:', user.email);
+      
+      // Configurar listener para notificaciones
+      unsubscribeRef.current = setupAppointmentNotifications(user);
+      notificationSetupRef.current = true;
+      
+      // Registrar actividad para mantener vivo el listener
+      const interval = setInterval(() => {
+        logDebug('Ping para mantener vivo el listener de notificaciones');
+      }, 30000); // Cada 30 segundos
+      
+      return () => {
+        clearInterval(interval);
+        if (unsubscribeRef.current) {
+          logDebug('Limpiando listener de notificaciones y ping');
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        }
+      };
+    }
   }, [user]);
 
   return (
