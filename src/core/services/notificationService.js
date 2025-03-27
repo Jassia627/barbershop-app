@@ -10,12 +10,16 @@ const notifiedAppointments = new Set();
 let notificationInterval = null;
 let isCheckingAppointments = false;
 
+// Detectar si es dispositivo móvil
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 // Solicitar permiso de notificaciones
 const requestPermission = async () => {
   try {
     if (!("Notification" in window)) {
-      console.error("Este navegador no soporta notificaciones");
-      toast.error("Tu navegador no soporta notificaciones");
+      console.log("Este navegador no soporta notificaciones nativas");
       return false;
     }
 
@@ -28,14 +32,23 @@ const requestPermission = async () => {
     console.log('Estado del permiso de notificaciones:', permission);
     
     if (permission !== 'granted') {
-      toast.error("Necesitamos tu permiso para mostrar notificaciones");
+      toast.error("Para recibir notificaciones, acepta los permisos");
     }
     
     return permission === 'granted';
   } catch (error) {
     console.error('Error al solicitar permiso:', error);
-    toast.error("Error al solicitar permisos de notificación");
     return false;
+  }
+};
+
+// Reproducir sonido de notificación
+const playNotificationSound = () => {
+  try {
+    const audio = new Audio('/notification.mp3');
+    audio.play().catch(e => console.log('No se pudo reproducir sonido:', e));
+  } catch (e) {
+    console.log('Error al reproducir sonido:', e);
   }
 };
 
@@ -44,14 +57,33 @@ export const sendNotification = (title, body, onClick) => {
   try {
     console.log(`NOTIFICACIÓN: ${title} - ${body}`);
     
-    // Siempre mostrar un toast
-    toast(body, {
-      duration: 5000,
-      icon: '🔔',
-    });
+    // Intentar reproducir sonido
+    playNotificationSound();
     
-    // Mostrar notificación nativa si hay permiso
-    if (Notification.permission === "granted") {
+    // Mostrar toast más llamativo para móviles
+    if (isMobileDevice()) {
+      toast(body, {
+        duration: 8000,
+        icon: '🔔',
+        style: {
+          background: '#ff5c5c',
+          color: '#fff',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          padding: '16px',
+          borderRadius: '10px',
+        },
+      });
+    } else {
+      // Toast normal para escritorio
+      toast(body, {
+        duration: 5000,
+        icon: '🔔',
+      });
+    }
+    
+    // Mostrar notificación nativa si hay permiso (principalmente para escritorio)
+    if (!isMobileDevice() && Notification.permission === "granted") {
       try {
         const notification = new Notification(title, {
           body,
@@ -69,12 +101,9 @@ export const sendNotification = (title, body, onClick) => {
       } catch (notifError) {
         console.error('Error al mostrar notificación nativa:', notifError);
       }
-    } else {
-      requestPermission();
     }
   } catch (error) {
     console.error('Error al mostrar notificación:', error);
-    toast.error(`Error al mostrar notificación`);
   }
 };
 
@@ -86,7 +115,6 @@ const checkAppointments = async (user) => {
   
   try {
     isCheckingAppointments = true;
-    console.log('Verificando citas para admin:', user.email);
     
     if (!user || !user.shopId) {
       console.error('Usuario inválido para verificar citas');
@@ -172,6 +200,21 @@ const checkAppointments = async (user) => {
           window.location.href = '/admin/appointments';
         }
       );
+      
+      // Para móviles, mostrar una segunda notificación para llamar más la atención
+      if (isMobileDevice()) {
+        setTimeout(() => {
+          toast.success('¡Tienes una nueva solicitud de cita!', {
+            duration: 5000,
+            icon: '📱',
+            style: {
+              background: '#4CAF50',
+              color: '#fff',
+              fontWeight: 'bold',
+            },
+          });
+        }, 1000);
+      }
     });
     
   } catch (error) {
@@ -182,7 +225,7 @@ const checkAppointments = async (user) => {
   }
 };
 
-// Configurar sistema de notificaciones - simplificado
+// Configurar sistema de notificaciones
 export const setupAppointmentNotifications = (user) => {
   try {
     console.log('Iniciando configuración de notificaciones para:', user);
@@ -212,14 +255,30 @@ export const setupAppointmentNotifications = (user) => {
       notificationInterval = null;
     }
 
-    // Solicitar permiso inmediatamente
-    requestPermission();
+    // Solicitar permiso para notificaciones (principalmente para escritorio)
+    if (!isMobileDevice()) {
+      requestPermission();
+    }
     
     // Toast para confirmar que el sistema está funcionando
     toast.success("Sistema de notificaciones activado", {
       duration: 3000,
       icon: '✅',
     });
+    
+    // Mostrar mensaje específico para móviles
+    if (isMobileDevice()) {
+      setTimeout(() => {
+        toast('Mantén esta pestaña abierta para recibir notificaciones', {
+          duration: 5000,
+          icon: '📱',
+          style: {
+            background: '#2196F3',
+            color: '#fff',
+          },
+        });
+      }, 2000);
+    }
     
     // Verificar citas inmediatamente
     setTimeout(() => {

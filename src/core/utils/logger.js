@@ -1,7 +1,7 @@
 // src/core/utils/logger.js
 
 // Configuración para habilitar o deshabilitar logs
-const ENABLE_LOGS = true;
+const ENABLE_LOGS = false;
 
 /**
  * Función para logs de información
