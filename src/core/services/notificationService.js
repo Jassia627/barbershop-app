@@ -4,11 +4,13 @@ import { db } from '../firebase/config';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { initializePushNotifications, sendPushNotificationToAdmins } from './pushNotificationService';
 
 // Variables para controlar las notificaciones
 const notifiedAppointments = new Set();
 let notificationInterval = null;
 let isCheckingAppointments = false;
+let pushNotificationsInitialized = false;
 
 // Detectar si es dispositivo móvil
 const isMobileDevice = () => {
@@ -192,14 +194,30 @@ const checkAppointments = async (user) => {
         console.error('Error al formatear fecha:', dateError);
       }
       
-      // Enviar notificación
+      // Crear mensaje de notificación
+      const notificationTitle = '¡Nueva Cita!';
+      const notificationBody = `${appointment.clientName || 'Un cliente'} ha solicitado una cita para ${formattedDate}`;
+      
+      // Enviar notificación local
       sendNotification(
-        '¡Nueva Cita!',
-        `${appointment.clientName || 'Un cliente'} ha solicitado una cita para ${formattedDate}`,
+        notificationTitle,
+        notificationBody,
         () => {
           window.location.href = '/admin/appointments';
         }
       );
+      
+      // También enviar notificación push para dispositivos móviles
+      sendPushNotificationToAdmins(
+        user.shopId, 
+        notificationTitle, 
+        notificationBody, 
+        {
+          appointmentId,
+          url: '/admin/appointments',
+          type: 'new_appointment'
+        }
+      ).catch(e => console.error('Error al enviar notificación push:', e));
       
       // Para móviles, mostrar una segunda notificación para llamar más la atención
       if (isMobileDevice()) {
@@ -255,7 +273,19 @@ export const setupAppointmentNotifications = (user) => {
       notificationInterval = null;
     }
 
-    // Solicitar permiso para notificaciones (principalmente para escritorio)
+    // Inicializar notificaciones push (incluye solicitud de permiso)
+    if (!pushNotificationsInitialized) {
+      initializePushNotifications(user)
+        .then(success => {
+          pushNotificationsInitialized = success;
+          console.log('Inicialización de notificaciones push:', success ? 'exitosa' : 'fallida');
+        })
+        .catch(error => {
+          console.error('Error al inicializar notificaciones push:', error);
+        });
+    }
+    
+    // Para navegadores de escritorio, solicitar permiso para notificaciones nativas
     if (!isMobileDevice()) {
       requestPermission();
     }

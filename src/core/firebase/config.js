@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getMessaging, isSupported } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB2xtx9PNSs_yAFice9jbkxzdahzzf3yoY",
@@ -24,6 +25,23 @@ const secondaryAuth = getAuth(secondaryApp);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
+// Inicializar Firebase Cloud Messaging solo si es compatible
+let messaging = null;
+isSupported().then(isSupported => {
+  if (isSupported) {
+    try {
+      messaging = getMessaging(app);
+      console.log("Firebase: Messaging inicializado");
+    } catch (error) {
+      console.error("Firebase: Error al inicializar Messaging", error);
+    }
+  } else {
+    console.log("Firebase: Messaging no es compatible en este navegador");
+  }
+}).catch(error => {
+  console.error("Firebase: Error al verificar compatibilidad de Messaging", error);
+});
+
 auth.languageCode = 'es';
 
-export { auth, secondaryAuth, db, storage, app as default };
+export { auth, secondaryAuth, db, storage, messaging, app as default };
