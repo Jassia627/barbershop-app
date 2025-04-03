@@ -117,17 +117,8 @@ export const createAppointment = async (appointmentData) => {
 
     const docRef = await addDoc(collection(db, "appointments"), appointment);
     
-    // Formatear la fecha para la notificación
-    const appointmentDate = appointment.date.toDate();
-    
-    // Intentar enviar notificación
-    sendNotification({
-      title: '¡Nueva Cita Pendiente!',
-      body: `${appointment.clientName} ha solicitado una cita para ${format(appointmentDate, 'dd/MM/yyyy HH:mm', { locale: es })}`,
-      onClick: () => {
-        window.location.href = '/admin/appointments';
-      }
-    });
+    // No necesitamos enviar la notificación aquí ya que el listener en setupAppointmentNotifications
+    // se encargará de enviarla automáticamente
 
     return { id: docRef.id, ...appointment };
   } catch (error) {

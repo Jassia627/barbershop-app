@@ -1,132 +1,335 @@
 import { logDebug, logError } from '../utils/logger';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import toast from 'react-hot-toast';
+import { initializePushNotifications, sendPushNotificationToAdmins } from './pushNotificationService';
 
-let notificationPermission = false;
+// Variables para controlar las notificaciones
+const notifiedAppointments = new Set();
+let notificationInterval = null;
+let isCheckingAppointments = false;
+let pushNotificationsInitialized = false;
 
-const NOTIFICATION_ICON = '/bb.png'; // Usando el logo existente
+// Detectar si es dispositivo móvil
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
 
-export const requestNotificationPermission = async () => {
+// Solicitar permiso de notificaciones
+const requestPermission = async () => {
   try {
-    // Verificar si el navegador soporta notificaciones
-    if (!('Notification' in window)) {
-      logDebug('Este navegador no soporta notificaciones de escritorio');
+    if (!("Notification" in window)) {
+      console.log("Este navegador no soporta notificaciones nativas");
       return false;
     }
 
-    // Verificar si estamos en HTTPS (excepto en localhost)
-    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-      logDebug('Las notificaciones web requieren HTTPS');
-      return false;
+    if (Notification.permission === "granted") {
+      console.log("Permiso de notificaciones ya otorgado");
+      return true;
     }
 
-    // Solicitar permiso
     const permission = await Notification.requestPermission();
-    notificationPermission = permission === 'granted';
+    console.log('Estado del permiso de notificaciones:', permission);
     
-    // Guardar el permiso en localStorage para futuras referencias
-    if (notificationPermission) {
-      localStorage.setItem('notificationPermission', 'granted');
+    if (permission !== 'granted') {
+      toast.error("Para recibir notificaciones, acepta los permisos");
     }
     
-    return notificationPermission;
+    return permission === 'granted';
   } catch (error) {
-    logError('Error al solicitar permiso de notificaciones:', error);
+    console.error('Error al solicitar permiso:', error);
     return false;
   }
 };
 
-export const sendNotification = async ({ title, body, onClick = null }) => {
+// Reproducir sonido de notificación
+const playNotificationSound = () => {
   try {
-    // Verificar si tenemos permiso guardado
-    const savedPermission = localStorage.getItem('notificationPermission');
-    
-    if (!notificationPermission && !savedPermission) {
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        logDebug('No se tienen permisos para enviar notificaciones');
-        return;
-      }
-    }
-
-    // Verificar si el navegador está enfocado
-    if (document.visibilityState === 'visible') {
-      logDebug('La página está visible, no se envía notificación');
-      return;
-    }
-
-    const notification = new Notification(title, {
-      body,
-      icon: NOTIFICATION_ICON,
-      badge: NOTIFICATION_ICON,
-      requireInteraction: true,
-      silent: false,
-      vibrate: [200, 100, 200]
-    });
-
-    if (onClick) {
-      notification.onclick = () => {
-        window.focus();
-        onClick();
-        notification.close();
-      };
-    }
-
-    // Reproducir un sonido de notificación
-    try {
-      const audio = new Audio('/notification-sound.mp3');
-      audio.play();
-    } catch (audioError) {
-      logDebug('No se pudo reproducir el sonido de notificación:', audioError);
-    }
-
-  } catch (error) {
-    logError('Error al enviar notificación:', error);
+    const audio = new Audio('/notification.mp3');
+    audio.play().catch(e => console.log('No se pudo reproducir sonido:', e));
+  } catch (e) {
+    console.log('Error al reproducir sonido:', e);
   }
 };
 
-export const setupAppointmentNotifications = (user) => {
-  if (!user || user.role !== 'admin') return;
-
-  // Solicitar permisos inmediatamente al configurar
-  requestNotificationPermission();
-  
-  // Verificar periódicamente el estado de los permisos
-  setInterval(() => {
-    if (Notification.permission === 'granted' && !notificationPermission) {
-      notificationPermission = true;
-      localStorage.setItem('notificationPermission', 'granted');
-    }
-  }, 60000); // Verificar cada minuto
-
-  // Configurar listener para nuevas citas
-  const unsubscribe = onSnapshot(
-    query(
-      collection(db, 'appointments'),
-      where('shopId', '==', user.shopId),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
-    ),
-    (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const appointment = change.doc.data();
-          sendNotification({
-            title: '¡Nueva Cita Pendiente!',
-            body: `${appointment.clientName} ha solicitado una cita para ${format(appointment.date.toDate(), 'dd/MM/yyyy HH:mm', { locale: es })}`,
-            onClick: () => {
-              window.location.href = '/admin/appointments';
-            }
-          });
-        }
+// Enviar una notificación
+export const sendNotification = (title, body, onClick) => {
+  try {
+    console.log(`NOTIFICACIÓN: ${title} - ${body}`);
+    
+    // Intentar reproducir sonido
+    playNotificationSound();
+    
+    // Mostrar toast más llamativo para móviles
+    if (isMobileDevice()) {
+      toast(body, {
+        duration: 8000,
+        icon: '🔔',
+        style: {
+          background: '#ff5c5c',
+          color: '#fff',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          padding: '16px',
+          borderRadius: '10px',
+        },
       });
-    },
-    (error) => {
-      logError('Error al escuchar nuevas citas:', error);
+    } else {
+      // Toast normal para escritorio
+      toast(body, {
+        duration: 5000,
+        icon: '🔔',
+      });
     }
-  );
+    
+    // Mostrar notificación nativa si hay permiso (principalmente para escritorio)
+    if (!isMobileDevice() && Notification.permission === "granted") {
+      try {
+        const notification = new Notification(title, {
+          body,
+          icon: '/logo.png',
+          requireInteraction: true,
+          silent: false,
+        });
 
-  return unsubscribe;
+        if (onClick) {
+          notification.onclick = () => {
+            window.focus();
+            onClick();
+          };
+        }
+      } catch (notifError) {
+        console.error('Error al mostrar notificación nativa:', notifError);
+      }
+    }
+  } catch (error) {
+    console.error('Error al mostrar notificación:', error);
+  }
+};
+
+// Verificar todas las citas - enfoque simple
+const checkAppointments = async (user) => {
+  if (isCheckingAppointments) {
+    return;
+  }
+  
+  try {
+    isCheckingAppointments = true;
+    
+    if (!user || !user.shopId) {
+      console.error('Usuario inválido para verificar citas');
+      isCheckingAppointments = false;
+      return;
+    }
+    
+    // Obtener TODAS las citas (sin filtros)
+    const appointmentsCollection = collection(db, 'appointments');
+    const snapshot = await getDocs(appointmentsCollection);
+    
+    console.log(`Se encontraron ${snapshot.docs.length} citas en total`);
+    
+    if (snapshot.docs.length === 0) {
+      isCheckingAppointments = false;
+      return;
+    }
+    
+    // Calcular timestamp de hace 5 minutos
+    const fiveMinutesAgo = new Date();
+    fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+    
+    // Filtrar en memoria citas pendientes, recientes y de la tienda correcta
+    const relevantAppointments = snapshot.docs.filter(doc => {
+      try {
+        const appointment = doc.data();
+        
+        // Verificar shopId
+        if (appointment.shopId !== user.shopId) return false;
+        
+        // Verificar status
+        if (appointment.status !== 'pending') return false;
+        
+        // Verificar timestamp si existe
+        if (appointment.createdAt) {
+          try {
+            const createdAt = appointment.createdAt.toDate();
+            return createdAt >= fiveMinutesAgo;
+          } catch (e) {
+            return false;
+          }
+        }
+        
+        // Si no hay createdAt, no podemos filtrar por tiempo
+        return false;
+      } catch (e) {
+        return false;
+      }
+    });
+    
+    console.log(`Se encontraron ${relevantAppointments.length} citas relevantes`);
+    
+    // Procesar citas relevantes
+    relevantAppointments.forEach(doc => {
+      const appointment = doc.data();
+      const appointmentId = doc.id;
+      
+      // Si ya notificamos esta cita antes, la ignoramos
+      if (notifiedAppointments.has(appointmentId)) {
+        return;
+      }
+      
+      console.log('¡NUEVA CITA DETECTADA!', appointment);
+      
+      // Marcar como notificada
+      notifiedAppointments.add(appointmentId);
+      
+      // Formatear fecha
+      let formattedDate = 'fecha no disponible';
+      try {
+        if (appointment.date) {
+          formattedDate = format(appointment.date.toDate(), 'dd/MM/yyyy HH:mm', { locale: es });
+        }
+      } catch (dateError) {
+        console.error('Error al formatear fecha:', dateError);
+      }
+      
+      // Crear mensaje de notificación
+      const notificationTitle = '¡Nueva Cita!';
+      const notificationBody = `${appointment.clientName || 'Un cliente'} ha solicitado una cita para ${formattedDate}`;
+      
+      // Enviar notificación local
+      sendNotification(
+        notificationTitle,
+        notificationBody,
+        () => {
+          window.location.href = '/admin/appointments';
+        }
+      );
+      
+      // También enviar notificación push para dispositivos móviles
+      sendPushNotificationToAdmins(
+        user.shopId, 
+        notificationTitle, 
+        notificationBody, 
+        {
+          appointmentId,
+          url: '/admin/appointments',
+          type: 'new_appointment'
+        }
+      ).catch(e => console.error('Error al enviar notificación push:', e));
+      
+      // Para móviles, mostrar una segunda notificación para llamar más la atención
+      if (isMobileDevice()) {
+        setTimeout(() => {
+          toast.success('¡Tienes una nueva solicitud de cita!', {
+            duration: 5000,
+            icon: '📱',
+            style: {
+              background: '#4CAF50',
+              color: '#fff',
+              fontWeight: 'bold',
+            },
+          });
+        }, 1000);
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error al verificar citas:', error);
+    toast.error("Error al verificar citas");
+  } finally {
+    isCheckingAppointments = false;
+  }
+};
+
+// Configurar sistema de notificaciones
+export const setupAppointmentNotifications = (user) => {
+  try {
+    console.log('Iniciando configuración de notificaciones para:', user);
+    
+    // Verificación básica
+    if (!user) {
+      console.error('No hay usuario para configurar notificaciones');
+      return null;
+    }
+    
+    // Verificar si el usuario es admin
+    if (user.role !== 'admin') {
+      console.log('Usuario no es admin, no se configurarán notificaciones');
+      return null;
+    }
+    
+    // Verificar shopId
+    if (!user.shopId) {
+      console.error('Usuario admin sin shopId');
+      toast.error("Error: No se puede identificar tu barbería");
+      return null;
+    }
+
+    // Limpiar intervalo anterior si existe
+    if (notificationInterval) {
+      clearInterval(notificationInterval);
+      notificationInterval = null;
+    }
+
+    // Inicializar notificaciones push (incluye solicitud de permiso)
+    if (!pushNotificationsInitialized) {
+      initializePushNotifications(user)
+        .then(success => {
+          pushNotificationsInitialized = success;
+          console.log('Inicialización de notificaciones push:', success ? 'exitosa' : 'fallida');
+        })
+        .catch(error => {
+          console.error('Error al inicializar notificaciones push:', error);
+        });
+    }
+    
+    // Para navegadores de escritorio, solicitar permiso para notificaciones nativas
+    if (!isMobileDevice()) {
+      requestPermission();
+    }
+    
+    // Toast para confirmar que el sistema está funcionando
+    toast.success("Sistema de notificaciones activado", {
+      duration: 3000,
+      icon: '✅',
+    });
+    
+    // Mostrar mensaje específico para móviles
+    if (isMobileDevice()) {
+      setTimeout(() => {
+        toast('Mantén esta pestaña abierta para recibir notificaciones', {
+          duration: 5000,
+          icon: '📱',
+          style: {
+            background: '#2196F3',
+            color: '#fff',
+          },
+        });
+      }, 2000);
+    }
+    
+    // Verificar citas inmediatamente
+    setTimeout(() => {
+      checkAppointments(user);
+    }, 2000);
+    
+    // Configurar verificación periódica cada 10 segundos
+    notificationInterval = setInterval(() => {
+      checkAppointments(user);
+    }, 10000);
+    
+    // Función de limpieza
+    return () => {
+      if (notificationInterval) {
+        clearInterval(notificationInterval);
+        notificationInterval = null;
+      }
+    };
+  } catch (error) {
+    console.error('Error al configurar notificaciones:', error);
+    toast.error("Error al configurar notificaciones");
+    return null;
+  }
 }; 
