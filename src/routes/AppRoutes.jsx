@@ -5,7 +5,7 @@ import Layout from '../components/layout/Layout';
 
 // Páginas públicas
 import Login from '../pages/Login';
-import Register from '../pages/Register';
+import Register from 'src/pages/Register.jsx';
 import BookingPage from '../pages/client/BookingPage';
 import NotFound from '../pages/NotFound';
 
