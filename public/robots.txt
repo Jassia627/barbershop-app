@@ -1,0 +1,9 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow service worker files
+Disallow: /firebase-messaging-sw.js
+Disallow: /worker-*.js
+Disallow: /sw.js
+Disallow: /service-worker.js 

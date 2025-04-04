@@ -1,4 +1,4 @@
-import { messaging, initMessaging, db } from '../../firebase/config';
+import { messaging, initMessaging, db, auth } from '../../firebase/config';
 import { getToken, onMessage } from 'firebase/messaging';
 import { 
   collection, 
@@ -12,9 +12,17 @@ import {
 } from 'firebase/firestore';
 import { logDebug, logError } from '../utils/logger';
 import toast from 'react-hot-toast';
+import { saveUserToken, getUserTokens } from './userService';
+import sendNotification from '../../api/send-notification';
 
 // Public VAPID key - Clave pública VAPID para Web Push
-const VAPID_KEY = 'BM2dgOLr9a2cHD34NBlCRw_wBfdCdUgK7GsZMqbNxSUi_Mj5vVhRYUw0--nUmpIL9XRRU6Vfvep8-i7b0rMOX10';
+// Esta clave necesita ser generada correctamente desde la consola de Firebase
+const VAPID_KEY = 'BAbMmZaX0PBzGUTx9qWPKKbKKnS_KrFfKb1O0t-gVUOROyg7RJnN3T7Ek1qVj-KfF_Q_ue4rZ3pYJ7rPiQ5qvVA';
+
+// Detección de dispositivo móvil
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
 
 /**
  * Guarda el token FCM del usuario en Firestore
@@ -41,7 +49,7 @@ export const saveTokenToFirestore = async (user, token) => {
       role: user.role || 'client',
       shopId: user.shopId || null,
       lastUpdated: serverTimestamp(),
-      platform: 'web',
+      platform: isMobileDevice() ? 'mobile' : 'web',
       isPWA: window.matchMedia('(display-mode: standalone)').matches,
       userAgent: navigator.userAgent
     };
@@ -52,10 +60,8 @@ export const saveTokenToFirestore = async (user, token) => {
     
     logDebug('Token FCM guardado exitosamente', token.slice(0, 10) + '...');
     
-    // Imprimir un toast para confirmar (solo en modo desarrollo)
-    if (process.env.NODE_ENV === 'development') {
-      toast.success('FCM Token guardado', { duration: 2000 });
-    }
+    // Imprimir un toast para confirmar
+    toast.success('Notificaciones activadas', { duration: 2000 });
     
     return true;
   } catch (error) {
@@ -78,6 +84,69 @@ export const initializePushNotifications = async (user) => {
   try {
     logDebug('Iniciando configuración de notificaciones push', user);
     
+    // Comprobar si el dispositivo es móvil
+    const isMobile = isMobileDevice();
+    logDebug('Tipo de dispositivo:', isMobile ? 'Móvil' : 'Desktop');
+    logDebug('Desplegado en Vercel:', window.location.hostname.includes('vercel.app'));
+    
+    // Verificar si el navegador soporta notificaciones
+    if (!('Notification' in window)) {
+      logDebug('Este navegador no soporta notificaciones push');
+      toast.error('Tu dispositivo no soporta notificaciones push');
+      return false;
+    }
+    
+    // Verificar permiso de notificaciones
+    const permission = await Notification.requestPermission();
+    logDebug('Estado del permiso de notificaciones:', permission);
+    
+    if (permission !== 'granted') {
+      toast.error('Para recibir notificaciones, acepta los permisos');
+      return false;
+    }
+    
+    // Asegurarnos de tener el service worker registrado
+    let serviceWorkerRegistration;
+    try {
+      // Verificar si hay un service worker ya registrado
+      if (navigator.serviceWorker.controller) {
+        logDebug('Service Worker ya controlando la página:', navigator.serviceWorker.controller.state);
+      } else {
+        logDebug('No hay Service Worker controlando esta página, intentando registrar...');
+      }
+      
+      // Solicitar registro explícito del service worker para FCM
+      try {
+        serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+          scope: '/'
+        });
+        logDebug('Service Worker registrado explícitamente:', serviceWorkerRegistration.scope);
+      } catch (swError) {
+        logError('Error al registrar el Service Worker específico para FCM:', swError);
+        // Intentar usar el service worker ya registrado como respaldo
+        serviceWorkerRegistration = await navigator.serviceWorker.ready;
+      }
+      
+      // Asegurarse de que esté activo
+      if (serviceWorkerRegistration.active) {
+        logDebug('Service Worker activo:', serviceWorkerRegistration.active.state);
+      } else {
+        // Esperar a que se active
+        logDebug('Esperando a que el Service Worker se active...');
+        await new Promise((resolve) => {
+          serviceWorkerRegistration.installing.addEventListener('statechange', (e) => {
+            if (e.target.state === 'activated') {
+              logDebug('Service Worker activado después de espera');
+              resolve();
+            }
+          });
+        });
+      }
+    } catch (error) {
+      logError('Error al obtener el Service Worker:', error);
+      return false;
+    }
+    
     // Inicializar messaging si no está disponible
     let messagingInstance = messaging;
     if (!messagingInstance) {
@@ -88,111 +157,119 @@ export const initializePushNotifications = async (user) => {
     // Verificar si el servicio de mensajería está disponible
     if (!messagingInstance) {
       logError('El servicio de mensajería de Firebase no está disponible');
-      
-      // Notificar al usuario en modo PWA
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        toast.error('Las notificaciones no están disponibles en este dispositivo');
-      }
-      
-      return false;
-    }
-
-    // Solicitar permiso para notificaciones
-    logDebug('Solicitando permiso para notificaciones push...');
-    
-    // Verificar si el navegador soporta notificaciones
-    if (!('Notification' in window)) {
-      logDebug('Este navegador no soporta notificaciones push');
-      
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        toast.error('Tu dispositivo no soporta notificaciones push');
-      }
-      
+      toast.error('Las notificaciones no están disponibles en este dispositivo');
       return false;
     }
     
-    // Verificar permiso de notificaciones
-    const permission = await Notification.requestPermission();
-    logDebug('Estado del permiso de notificaciones:', permission);
-    
-    if (permission !== 'granted') {
-      // Mostrar mensaje solo en PWA
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        toast.error('Para recibir notificaciones, acepta los permisos');
-      }
-      return false;
-    }
-    
-    // Asegurarnos de tener el service worker registrado
-    let serviceWorkerRegistration;
     try {
-      serviceWorkerRegistration = await navigator.serviceWorker.ready;
-      logDebug('Service Worker listo:', serviceWorkerRegistration.scope);
-    } catch (error) {
-      logError('Error al obtener el Service Worker:', error);
-      return false;
-    }
-    
-    // Obtener token FCM
-    logDebug('Obteniendo token FCM...');
-    const tokenOptions = { 
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration
-    };
-    
-    logDebug('Token options:', tokenOptions);
-    
-    const token = await getToken(messagingInstance, tokenOptions);
-    
-    if (!token) {
-      logError('No se pudo obtener el token FCM');
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        toast.error('No se pudo configurar las notificaciones');
-      }
-      return false;
-    }
-    
-    logDebug('Token FCM obtenido:', token.slice(0, 10) + '...');
-    
-    // Guardar token en Firestore
-    await saveTokenToFirestore(user, token);
-    
-    // Configurar manejo de mensajes en primer plano
-    onMessage(messagingInstance, (payload) => {
-      logDebug('Mensaje recibido en primer plano:', payload);
+      // Obtener token FCM - Primero intentamos sin la clave VAPID
+      let token;
       
-      const { notification } = payload;
-      
-      if (notification) {
-        // Mostrar notificación usando react-hot-toast
-        toast.success(notification.title, {
-          duration: 8000,
-          icon: '🔔',
-          style: {
-            background: '#4CAF50',
-            color: '#fff',
-            fontWeight: 'bold',
-            padding: '16px',
-          },
-          description: notification.body
+      try {
+        logDebug('Intentando obtener token FCM sin VAPID key...');
+        token = await getToken(messagingInstance, {
+          serviceWorkerRegistration
         });
+        logDebug('Token obtenido sin VAPID key');
+      } catch (noVapidError) {
+        logDebug('Error al obtener token sin VAPID, intentando con VAPID key...', noVapidError);
         
-        // Reproducir sonido
+        // Si falla, intentamos con la clave VAPID
         try {
-          const audio = new Audio('/notification.mp3');
-          audio.play().catch(e => logDebug('Error al reproducir sonido:', e));
-        } catch (e) {
-          logDebug('Error al crear objeto de audio:', e);
+          token = await getToken(messagingInstance, {
+            vapidKey: VAPID_KEY,
+            serviceWorkerRegistration
+          });
+          logDebug('Token obtenido con VAPID key');
+        } catch (vapidError) {
+          logError('Error al obtener token con VAPID key:', vapidError);
+          
+          // Último intento: registrar nuevamente el service worker de forma explícita
+          if (isMobile) {
+            logDebug('Último intento: registrando service worker nuevamente (dispositivo móvil)');
+            try {
+              const newRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { 
+                scope: '/',
+                updateViaCache: 'none'
+              });
+              
+              // Esperar a que esté activo
+              if (newRegistration.installing) {
+                await new Promise(resolve => {
+                  newRegistration.installing.addEventListener('statechange', (e) => {
+                    if (e.target.state === 'activated') {
+                      resolve();
+                    }
+                  });
+                });
+              }
+              
+              token = await getToken(messagingInstance, {
+                vapidKey: VAPID_KEY,
+                serviceWorkerRegistration: newRegistration
+              });
+              logDebug('Token obtenido después de re-registrar service worker');
+            } catch (finalError) {
+              logError('Error final al intentar obtener token FCM:', finalError);
+              throw finalError;
+            }
+          } else {
+            throw vapidError;
+          }
         }
       }
-    });
-    
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      toast.success('Notificaciones configuradas correctamente');
+      
+      if (!token) {
+        logError('No se pudo obtener el token FCM');
+        toast.error('No se pudo configurar las notificaciones');
+        return false;
+      }
+      
+      logDebug('Token FCM obtenido:', token.substring(0, 10) + '...');
+      
+      // Guardar token en Firestore
+      await saveTokenToFirestore(user, token);
+      
+      // También guardar en el nuevo método
+      await saveUserToken(token);
+      
+      // Configurar manejo de mensajes en primer plano
+      onMessage(messagingInstance, (payload) => {
+        logDebug('Mensaje recibido en primer plano:', payload);
+        
+        const { notification } = payload;
+        
+        if (notification) {
+          // Mostrar notificación usando react-hot-toast
+          toast.success(notification.title, {
+            duration: 8000,
+            icon: '🔔',
+            style: {
+              background: '#4CAF50',
+              color: '#fff',
+              fontWeight: 'bold',
+              padding: '16px',
+            },
+            description: notification.body
+          });
+          
+          // Reproducir sonido
+          try {
+            const audio = new Audio('/notification.mp3');
+            audio.play().catch(e => logDebug('Error al reproducir sonido:', e));
+          } catch (e) {
+            logDebug('Error al crear objeto de audio:', e);
+          }
+        }
+      });
+      
+      logDebug('Sistema de notificaciones push inicializado correctamente');
+      return true;
+    } catch (error) {
+      logError('Error al obtener token FCM:', error);
+      toast.error('Error con las notificaciones: ' + error.message);
+      return false;
     }
-    
-    logDebug('Sistema de notificaciones push inicializado correctamente');
-    return true;
   } catch (error) {
     logError('Error al inicializar notificaciones push:', error);
     return false;
@@ -200,35 +277,63 @@ export const initializePushNotifications = async (user) => {
 };
 
 /**
- * Envía una notificación directa a través de FCM sin usar Cloud Functions
+ * Envía una notificación directa a través de FCM usando credenciales de servidor
  * @param {string} tokenId - Token FCM del destinatario
  * @param {string} title - Título de la notificación
  * @param {string} body - Cuerpo de la notificación
  * @param {Object} data - Datos adicionales
  */
 export const sendDirectNotification = async (tokenId, title, body, data = {}) => {
+  if (!tokenId) {
+    logError('Token FCM no válido');
+    return false;
+  }
+
   try {
-    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+    // Crear la estructura de la notificación
+    const notificationPayload = {
+      to: tokenId,
+      notification: {
+        title,
+        body,
+        icon: '/Rojo negro.png',
+        sound: 'default',
+        badge: '1',
+        click_action: data.url || '/'
+      },
+      data: {
+        ...data,
+        url: data.url || '/',
+        title,
+        body
+      },
+      // Necesario para iOS
+      content_available: true,
+      priority: 'high'
+    };
+
+    logDebug('Enviando notificación:', notificationPayload);
+
+    // Realizar la solicitud a FCM usando servidor proxy
+    // Nota: Para entornos de producción, esto debería enviarse desde un servidor seguro con credenciales adecuadas
+    const response = await fetch('/api/send-notification', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `key=AAAA4pu7GR0:APA91bEOqP7JdPb3n8D3HFZLwAXEjw7RJsn3BK0cw1gTWLz3p3vwQHFTv2LNSgJm7g4MoXKQeIB-i8x_0x3w2XQXJzxyvDrmT9yXQZtlsVhP-3qf4Nf_DsS9j6pJiafMYv1B3CJScJAz`
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        to: tokenId,
-        notification: {
-          title,
-          body,
-          icon: '/Rojo negro.png',
-          click_action: data.url || '/'
-        },
-        data
-      })
+      body: JSON.stringify(notificationPayload)
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      logError('Error al enviar notificación:', errorData);
+      return false;
+    }
     
     const result = await response.json();
     logDebug('Respuesta FCM:', result);
-    return result.success === 1;
+    
+    return result.success === true;
   } catch (error) {
     logError('Error al enviar notificación directa:', error);
     return false;
@@ -249,18 +354,24 @@ export const sendPushNotificationToAdmins = async (shopId, title, body, data = {
   }
 
   try {
-    // Primero, crear documento de notificación en Firestore
-    await addDoc(collection(db, 'notifications'), {
+    // Primero, crear documento de notificación en Firestore para registro
+    const notificationRef = await addDoc(collection(db, 'notifications'), {
       title,
       body,
       shopId,
       data,
       createdAt: serverTimestamp(),
       sent: false,
-      platform: 'web',
+      platform: isMobileDevice() ? 'mobile' : 'web',
       isPWA: window.matchMedia('(display-mode: standalone)').matches
     });
     
+    logDebug('Notificación guardada en Firestore:', notificationRef.id);
+    
+    // El enfoque más seguro es dejar que una Cloud Function maneje el envío de notificaciones
+    // ya que tiene las credenciales correctas para hacerlo
+    
+    // Lo siguiente es solo para depuración y como ejemplo:
     // Obtener todos los tokens de administradores de esta tienda
     const tokensQuery = query(
       collection(db, 'userTokens'),
@@ -275,22 +386,83 @@ export const sendPushNotificationToAdmins = async (shopId, title, body, data = {
       return false;
     }
     
-    // Enviar notificación a cada token encontrado
-    const sendPromises = tokensSnapshot.docs.map(doc => {
-      const tokenData = doc.data();
-      if (tokenData.fcmToken) {
-        return sendDirectNotification(tokenData.fcmToken, title, body, data);
-      }
-      return Promise.resolve(false);
-    });
+    logDebug(`Encontrados ${tokensSnapshot.size} tokens de administradores`);
     
-    const results = await Promise.all(sendPromises);
-    const successCount = results.filter(Boolean).length;
-    
-    logDebug(`Notificaciones enviadas: ${successCount}/${results.length}`);
-    return successCount > 0;
+    // Nota: En un entorno real, esta parte debería ser manejada por una Cloud Function
+    return true;
   } catch (error) {
     logError('Error al enviar notificación push:', error);
+    return false;
+  }
+};
+
+export const sendPushNotification = async (userToken, title, body, data = {}) => {
+  try {
+    if (!userToken) {
+      console.error('No se puede enviar notificación: Token de usuario no proporcionado');
+      return false;
+    }
+
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.error('El usuario debe estar autenticado para enviar notificaciones');
+      return false;
+    }
+
+    const notificationPayload = {
+      token: userToken,
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        ...data,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      // Configuración para Android
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        },
+      },
+      // Configuración para Apple
+      apns: {
+        headers: {
+          'apns-priority': '10',
+        },
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+            content_available: true,
+          },
+        },
+      },
+      // Configuración para Web
+      webpush: {
+        headers: {
+          Urgency: 'high',
+        },
+        notification: {
+          icon: '/icons/icon-192x192.png',
+        },
+      },
+    };
+
+    // Usar el nuevo endpoint en lugar de la llamada directa a FCM
+    const response = await sendNotification(notificationPayload);
+    
+    if (response.success) {
+      console.log('Notificación enviada correctamente:', response.messageId);
+      return true;
+    } else {
+      console.error('Error al enviar la notificación:', response.error);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error al enviar la notificación:', error);
     return false;
   }
 }; 

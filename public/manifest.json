@@ -6,6 +6,7 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#e11d48",
+  "gcm_sender_id": "678061957866",
   "icons": [
     {
       "src": "/Rojo negro.png",
@@ -26,4 +27,4 @@
       "purpose": "maskable"
     }
   ]
-} 
+}
