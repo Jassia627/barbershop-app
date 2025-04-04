@@ -3,12 +3,12 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppointments } from '../hooks/useAppointments';
 import AppointmentCard from '../components/AppointmentCard';
-import { Calendar, CheckSquare, XCircle, AlertTriangle, CheckCircle, Scissors, MessageCircle, Filter, ChevronLeft, ChevronRight, ArrowUp, Users, Menu, X as XIcon, SlidersHorizontal, RefreshCcw, Moon, Sun } from 'lucide-react';
+import { Calendar, CheckSquare, XCircle, AlertTriangle, CheckCircle, Scissors, MessageCircle, Filter, ChevronLeft, ChevronRight, ArrowUp, Users, Menu, X as XIcon, SlidersHorizontal, RefreshCcw, Moon, Sun, History } from 'lucide-react';
 import { useTheme } from '../../../core/context/ThemeContext';
 
 const AppointmentsManagement = () => {
   const navigate = useNavigate();
-  const { barbers, appointments = [], selectedBarber, loading, filterAppointments, approveAppointment, cancelAppointment } = useAppointments();
+  const { barbers, appointments = [], selectedBarber, loading, filterAppointments, approveAppointment, cancelAppointment, finishAppointment } = useAppointments();
   const [filterStatus, setFilterStatus] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const appointmentsPerPage = 10;
@@ -198,8 +198,8 @@ const AppointmentsManagement = () => {
               </div>
             </div>
           </div>
+          
           <div className="flex gap-2 w-full sm:w-auto mt-4 sm:mt-0">
-            {/* Eliminar el botón de tema, ya existe en el navbar */}
             <button
               onClick={resetFilters}
               className={`flex items-center justify-center gap-1 px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-all duration-300 text-sm flex-1 sm:flex-auto ${
@@ -211,6 +211,19 @@ const AppointmentsManagement = () => {
               <RefreshCcw className="h-4 w-4" />
               <span className="sm:inline hidden">Resetear</span>
             </button>
+            
+            <button
+              onClick={() => navigate('/admin/haircut-history')}
+              className={`flex items-center justify-center gap-1 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg transition-all duration-300 shadow-md flex-1 sm:flex-auto ${
+                theme === 'dark' 
+                  ? 'bg-purple-600/80 text-white hover:bg-purple-700/80' 
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              }`}
+            >
+              <Scissors className="h-4 w-4" />
+              <span className="text-sm sm:text-base">Ver Historial</span>
+            </button>
+            
         <button
           onClick={() => navigate('/admin/schedules')}
               className={`flex items-center justify-center gap-1 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg transition-all duration-300 shadow-md flex-1 sm:flex-auto ${
@@ -351,7 +364,7 @@ const AppointmentsManagement = () => {
                     <span>Barbero</span>
                     <span className={`ml-2 text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>({barbers.length})</span>
                   </h3>
-                  <div className="grid grid-cols-4 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-2 gap-2 sm:gap-3">
                     <button
                       key="all-barbers"
                       onClick={() => filterAppointments(null)}
@@ -417,7 +430,7 @@ const AppointmentsManagement = () => {
                               </div>
                             )}
                           </div>
-                          <span className={`text-[9px] sm:text-xs font-medium truncate w-full text-center ${
+                          <span className={`text-[10px] sm:text-xs font-medium truncate w-full text-center ${
                             selectedBarber?.id === barber.id
                               ? theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
                               : theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
@@ -455,32 +468,6 @@ const AppointmentsManagement = () => {
                     <option value="finished">Finalizadas</option>
                     <option value="cancelled">Canceladas</option>
                   </select>
-                </div>
-
-                {/* Botones de acción para filtros en móvil */}
-                <div className="sm:hidden mt-4 flex gap-2">
-                  <button
-                    onClick={resetFilters}
-                    className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all duration-300 text-sm ${
-                      theme === 'dark' 
-                        ? 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700' 
-                        : 'bg-white text-gray-700 border border-gray-200 shadow-sm hover:bg-gray-50'
-                    }`}
-                  >
-                    <RefreshCcw className="h-3.5 w-3.5" />
-                    <span className="text-xs">Limpiar filtros</span>
-                  </button>
-                  <button
-                    onClick={() => setShowFilters(false)}
-                    className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all duration-300 shadow-md ${
-                      theme === 'dark' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-blue-900/20' 
-                        : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-blue-500/20'
-                    }`}
-                  >
-                    <CheckCircle className="h-3.5 w-3.5" />
-                    <span className="text-xs">Aplicar</span>
-                  </button>
                 </div>
 
                 {/* Información de filtros activos */}
@@ -578,6 +565,7 @@ const AppointmentsManagement = () => {
                 appointment={appointment}
                 onApprove={approveAppointment}
                 onCancel={cancelAppointment}
+                            onFinish={finishAppointment}
                             theme={theme}
                           />
                         </div>

@@ -4,7 +4,7 @@ import { MessageSquare, Check, X, Clock, CheckCircle2, User, Phone, Calendar, Cl
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinish, isBarber = false, theme = 'dark' }) => {
+const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinish, isBarber = false }) => {
   const sendWhatsApp = () => {
     const phoneNumber = appointment.clientPhone.replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/+57${phoneNumber}?text=${encodeURIComponent(appointment.whatsappMessage)}`;
@@ -14,30 +14,18 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
   const getStatusColor = (status) => {
     switch (status) {
       case 'confirmed':
-        return theme === 'dark' 
-          ? 'bg-green-500/20 text-green-500' 
-          : 'bg-green-100 text-green-700';
+        return 'bg-green-500/20 text-green-500';
       case 'completed':
-        return theme === 'dark' 
-          ? 'bg-blue-500/20 text-blue-500' 
-          : 'bg-blue-100 text-blue-700';
+        return 'bg-blue-500/20 text-blue-500';
       case 'pending_review':
-        return theme === 'dark' 
-          ? 'bg-purple-500/20 text-purple-500' 
-          : 'bg-purple-100 text-purple-700';
+        return 'bg-purple-500/20 text-purple-500';
       case 'finished':
-        return theme === 'dark' 
-          ? 'bg-gray-500/20 text-gray-500' 
-          : 'bg-gray-200 text-gray-700';
+        return 'bg-gray-500/20 text-gray-500';
       case 'cancelled':
-        return theme === 'dark' 
-          ? 'bg-red-500/20 text-red-500' 
-          : 'bg-red-100 text-red-700';
+        return 'bg-red-500/20 text-red-500';
       case 'pending':
       default:
-        return theme === 'dark' 
-          ? 'bg-yellow-500/20 text-yellow-500' 
-          : 'bg-yellow-100 text-yellow-700';
+        return 'bg-yellow-500/20 text-yellow-500';
     }
   };
 
@@ -135,18 +123,18 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
   const getBorderColor = (status) => {
     switch (status) {
       case 'confirmed':
-        return theme === 'dark' ? 'before:bg-green-500' : 'before:bg-green-600';
+        return 'before:bg-green-500';
       case 'completed':
-        return theme === 'dark' ? 'before:bg-blue-500' : 'before:bg-blue-600';
+        return 'before:bg-blue-500';
       case 'pending_review':
-        return theme === 'dark' ? 'before:bg-purple-500' : 'before:bg-purple-600';
+        return 'before:bg-purple-500';
       case 'finished':
-        return theme === 'dark' ? 'before:bg-gray-500' : 'before:bg-gray-600';
+        return 'before:bg-gray-500';
       case 'cancelled':
-        return theme === 'dark' ? 'before:bg-red-500' : 'before:bg-red-600';
+        return 'before:bg-red-500';
       case 'pending':
       default:
-        return theme === 'dark' ? 'before:bg-yellow-500' : 'before:bg-yellow-600';
+        return 'before:bg-yellow-500';
     }
   };
 
@@ -174,28 +162,18 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
   };
 
   return (
-    <div className={`rounded-lg shadow-md overflow-hidden border relative before:absolute before:left-0 before:top-0 before:h-full before:w-1 ${
-      theme === 'dark'
-        ? 'bg-gradient-to-br from-gray-800 to-gray-800/90 border-gray-700/50'
-        : 'bg-white border-gray-200/50'
-    } ${getBorderColor(appointment.status)}`}>      
+    <div className={`bg-gradient-to-br from-gray-800 to-gray-800/90 rounded-lg shadow-md overflow-hidden border border-gray-700/50 relative before:absolute before:left-0 before:top-0 before:h-full before:w-1 ${getBorderColor(appointment.status)}`}>      
       <div className="p-3 sm:p-5">
         <div className="flex justify-between items-start mb-3 sm:mb-4">
           {/* Información principal */}
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex-shrink-0">
-              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-inner ${
-                theme === 'dark' 
-                  ? 'bg-gradient-to-br from-blue-800 to-blue-900' 
-                  : 'bg-gradient-to-br from-blue-500 to-blue-600'
-              }`}>
-                <User className={`h-4 w-4 sm:h-5 sm:w-5 ${theme === 'dark' ? 'text-blue-400' : 'text-white'}`} />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-800 to-blue-900 rounded-full flex items-center justify-center shadow-inner">
+                <User className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
               </div>
             </div>
             <div>
-              <h3 className={`text-sm sm:text-base font-medium flex items-center flex-wrap gap-1 sm:gap-2 ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>
+              <h3 className="text-sm sm:text-base font-medium text-white flex items-center flex-wrap gap-1 sm:gap-2">
                 <span className="truncate max-w-[120px] sm:max-w-full">{appointment.clientName}</span>
                 {timeUntil && (
                   <span className={`inline-block px-1.5 py-0.5 text-[10px] sm:text-xs rounded-full border ${getTimeBadgeColor()}`}>
@@ -203,27 +181,17 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
                   </span>
                 )}
                 {isToday() && (
-                  <span className={`inline-block px-1.5 py-0.5 text-[10px] sm:text-xs rounded-full border ${
-                    theme === 'dark'
-                      ? 'bg-blue-900/30 text-blue-400 border-blue-500/30'
-                      : 'bg-blue-100 text-blue-700 border-blue-200'
-                  }`}>
+                  <span className="inline-block px-1.5 py-0.5 bg-blue-900/30 text-blue-400 text-[10px] sm:text-xs rounded-full border border-blue-500/30">
                     Hoy
                   </span>
                 )}
               </h3>
-              <div className={`flex items-center mt-1 sm:mt-1.5 text-[10px] sm:text-xs ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`}>
-                <Calendar className={`h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 ${
-                  theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                }`} />
+              <div className="flex items-center mt-1 sm:mt-1.5 text-gray-400 text-[10px] sm:text-xs">
+                <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-gray-500" />
                 <span className="hidden sm:inline">{formatDateDesktop(appointment.date)}</span>
                 <span className="sm:hidden">{formatDateMobile(appointment.date)}</span>
                 <span className="mx-1">•</span>
-                <ClockIcon className={`h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 ${
-                  theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                }`} />
+                <ClockIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-gray-500" />
                 {formatTime(appointment.date)}
               </div>
             </div>
@@ -240,63 +208,33 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
         {/* Detalles adicionales */}
         <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className={`flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center shadow-inner ${
-              theme === 'dark'
-                ? 'bg-gradient-to-br from-gray-700 to-gray-800'
-                : 'bg-gradient-to-br from-gray-100 to-gray-200'
-            }`}>
-              <Scissors className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`} />
+            <div className="flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center shadow-inner">
+              <Scissors className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-gray-400" />
             </div>
             <div>
-              <p className={`text-[10px] sm:text-xs ${
-                theme === 'dark' ? 'text-gray-500' : 'text-gray-500'
-              }`}>Barbero</p>
-              <p className={`text-xs sm:text-sm truncate max-w-[80px] sm:max-w-full ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-              }`}>{appointment.barberName}</p>
+              <p className="text-[10px] sm:text-xs text-gray-500">Barbero</p>
+              <p className="text-xs sm:text-sm text-gray-300 truncate max-w-[80px] sm:max-w-full">{appointment.barberName}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className={`flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center shadow-inner ${
-              theme === 'dark'
-                ? 'bg-gradient-to-br from-gray-700 to-gray-800'
-                : 'bg-gradient-to-br from-gray-100 to-gray-200'
-            }`}>
-              <Phone className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`} />
+            <div className="flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center shadow-inner">
+              <Phone className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-gray-400" />
             </div>
             <div>
-              <p className={`text-[10px] sm:text-xs ${
-                theme === 'dark' ? 'text-gray-500' : 'text-gray-500'
-              }`}>Teléfono</p>
-              <p className={`text-xs sm:text-sm ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-              }`}>{appointment.clientPhone}</p>
+              <p className="text-[10px] sm:text-xs text-gray-500">Teléfono</p>
+              <p className="text-xs sm:text-sm text-gray-300">{appointment.clientPhone}</p>
             </div>
           </div>
           
           {appointment.serviceName && (
             <div className="flex items-center gap-1.5 sm:gap-2 col-span-2 mt-0.5 sm:mt-1">
-              <div className={`flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center shadow-inner ${
-                theme === 'dark'
-                  ? 'bg-gradient-to-br from-gray-700 to-gray-800'
-                  : 'bg-gradient-to-br from-gray-100 to-gray-200'
-              }`}>
-                <Scissors className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                }`} />
+              <div className="flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center shadow-inner">
+                <Scissors className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-gray-400" />
               </div>
         <div>
-                <p className={`text-[10px] sm:text-xs ${
-                  theme === 'dark' ? 'text-gray-500' : 'text-gray-500'
-                }`}>Servicio</p>
-                <p className={`text-xs sm:text-sm truncate max-w-[200px] sm:max-w-full ${
-                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                }`}>{appointment.serviceName}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500">Servicio</p>
+                <p className="text-xs sm:text-sm text-gray-300 truncate max-w-[200px] sm:max-w-full">{appointment.serviceName}</p>
               </div>
             </div>
           )}
@@ -304,46 +242,28 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
 
         {/* Comentarios (opcional) - visible solo en dispositivos más grandes */}
         {appointment.notes && (
-          <div className={`hidden sm:flex px-3 py-2 rounded-md mb-4 items-start gap-2 ${
-            theme === 'dark' ? 'bg-gray-700/30' : 'bg-gray-100/80'
-          }`}>
-            <Info className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
-              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-            }`} />
-            <p className={`text-xs ${
-              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-            }`}>{appointment.notes}</p>
+          <div className="hidden sm:flex px-3 py-2 bg-gray-700/30 rounded-md mb-4 items-start gap-2">
+            <Info className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-gray-400">{appointment.notes}</p>
           </div>
         )}
         
         {/* Comentarios (opcional) - versión móvil más compacta */}
         {appointment.notes && (
-          <div className={`sm:hidden px-2 py-1.5 rounded-md mb-3 flex items-start gap-1.5 ${
-            theme === 'dark' ? 'bg-gray-700/30' : 'bg-gray-100/80'
-          }`}>
-            <Info className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
-              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-            }`} />
-            <p className={`text-[10px] line-clamp-2 ${
-              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-            }`}>{truncateText(appointment.notes, 60)}</p>
+          <div className="sm:hidden px-2 py-1.5 bg-gray-700/30 rounded-md mb-3 flex items-start gap-1.5">
+            <Info className="h-3 w-3 text-gray-400 mt-0.5 flex-shrink-0" />
+            <p className="text-[10px] text-gray-400 line-clamp-2">{truncateText(appointment.notes, 60)}</p>
       </div>
         )}
 
         {/* Acciones */}
-        <div className={`flex flex-wrap justify-end items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t ${
-          theme === 'dark' ? 'border-gray-700/70' : 'border-gray-200'
-        }`}>
+        <div className="flex flex-wrap justify-end items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-700/70">
           {/* Botones para el administrador */}
           {!isBarber && appointment.status === 'pending' && onApprove && onCancel && (
             <>
               <button
                 onClick={() => onCancel(appointment.id)}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${
-                  theme === 'dark'
-                    ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300'
-                    : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800'
-                }`}
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-red-500/10 text-red-400 rounded-md text-[10px] sm:text-xs font-medium hover:bg-red-500/20 hover:text-red-300 transition-colors"
               >
                 <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span className="hidden sm:inline">Cancelar</span>
@@ -351,11 +271,7 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
               </button>
               <button
                 onClick={() => onApprove(appointment.id)}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-all shadow-sm ${
-                  theme === 'dark'
-                    ? 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800'
-                    : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
-                }`}
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-md text-[10px] sm:text-xs font-medium hover:from-green-700 hover:to-green-800 transition-all shadow-sm"
               >
                 <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span className="hidden sm:inline">Confirmar</span>
@@ -368,11 +284,7 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
           {isBarber && appointment.status === 'confirmed' && onComplete && (
             <button
               onClick={() => onComplete(appointment.id)}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-all shadow-sm ${
-                theme === 'dark'
-                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800'
-                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700'
-              }`}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-md text-[10px] sm:text-xs font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm"
             >
               <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               <span className="hidden sm:inline">Completar</span>
@@ -384,11 +296,7 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
           {!isBarber && appointment.status === 'pending_review' && onFinish && (
             <button
               onClick={() => onFinish(appointment)}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-all shadow-sm ${
-                theme === 'dark'
-                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800'
-                  : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700'
-              }`}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-md text-[10px] sm:text-xs font-medium hover:from-purple-700 hover:to-purple-800 transition-all shadow-sm"
             >
               <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               <span className="hidden sm:inline">Finalizar</span>
@@ -399,11 +307,7 @@ const AppointmentCard = ({ appointment, onApprove, onCancel, onComplete, onFinis
           {/* Botón de WhatsApp */}
           <button
             onClick={sendWhatsApp}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-all shadow-sm ${
-              theme === 'dark'
-                ? 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800'
-                : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
-            }`}
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-md text-[10px] sm:text-xs font-medium hover:from-green-700 hover:to-green-800 transition-all shadow-sm"
           >
             <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             <span className="hidden sm:inline">WhatsApp</span>
