@@ -14,7 +14,31 @@ if (typeof firebase === 'undefined') {
   });
 
   // Inicializar Messaging
-  firebase.messaging();
+  const messaging = firebase.messaging();
+  
+  // Manejar mensajes en segundo plano
+  messaging.onBackgroundMessage((payload) => {
+    console.log('[SW] Mensaje recibido en segundo plano:', payload);
+    
+    const { notification } = payload;
+    
+    if (notification) {
+      const options = {
+        body: notification.body || 'Tienes una notificación',
+        icon: notification.icon || '/Rojo negro.png',
+        badge: '/badge.png',
+        vibrate: [200, 100, 200, 100, 200],
+        tag: 'barbershop-notification',
+        requireInteraction: true,
+        data: {
+          url: notification.click_action || '/',
+          ...payload.data
+        }
+      };
+
+      self.registration.showNotification(notification.title || 'Barbershop App', options);
+    }
+  });
 }
 
 const CACHE_NAME = 'barbershop-v1';
@@ -33,32 +57,38 @@ const urlsToCache = [
 
 // Instalación del service worker
 self.addEventListener('install', (event) => {
+  console.log('[SW] Instalando Service Worker');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Cache abierto');
+        console.log('[SW] Cache abierto');
         return cache.addAll(urlsToCache);
       })
   );
+  // Hacer que el service worker tome el control inmediatamente
+  self.skipWaiting();
 });
 
 // Activación del service worker
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activando Service Worker');
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('[SW] Eliminando caché antigua:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Tomar el control de todas las pestañas abiertas
+      console.log('[SW] Reclamando clientes');
+      return self.clients.claim();
     })
   );
-  
-  // Asegurarse de que el service worker se activa inmediatamente
-  event.waitUntil(self.clients.claim());
 });
 
 // Estrategia de caché: Network first, falling back to cache
@@ -113,15 +143,15 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Handle background messages
+// Manejar eventos push
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push recibido:', event);
+  console.log('[SW] Push recibido:', event);
 
   let payload;
   try {
     payload = event.data.json();
   } catch (e) {
-    console.log('Error al parsear payload:', e);
+    console.log('[SW] Error al parsear payload:', e);
     payload = {
       notification: {
         title: 'Nueva notificación',
@@ -148,37 +178,54 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.registration.showNotification(notification.title || 'Barbershop App', options)
+      .then(() => {
+        console.log('[SW] Notificación mostrada correctamente');
+      })
+      .catch(error => {
+        console.error('[SW] Error al mostrar notificación:', error);
+      })
   );
 });
 
-// Handle notification click in background
+// Manejar clicks en notificaciones
 self.addEventListener('notificationclick', (event) => {
-  console.log('[Service Worker] Notification click:', event);
+  console.log('[SW] Click en notificación:', event);
   
-  // Close the notification
+  // Cerrar la notificación
   event.notification.close();
   
-  // Navigate to the specified page when clicked or default to appointments
+  // Navegar a la página especificada o a citas por defecto
   const url = event.notification.data?.url || '/admin/appointments';
   const urlToOpen = new URL(url, self.location.origin).href;
+  
+  console.log('[SW] Abriendo URL:', urlToOpen);
   
   const promiseChain = clients.matchAll({
     type: 'window',
     includeUncontrolled: true
   })
   .then((windowClients) => {
-    // Check if there is already a window open with the target URL
+    // Buscar si ya hay una ventana abierta con esa URL
     for (let i = 0; i < windowClients.length; i++) {
       const client = windowClients[i];
-      // If so, focus it
+      console.log('[SW] Cliente encontrado:', client.url);
+      
+      // Si ya hay una ventana abierta, la enfocamos
       if (client.url === urlToOpen && 'focus' in client) {
+        console.log('[SW] Enfocando cliente existente');
         return client.focus();
       }
     }
-    // If not, open a new window
-    if (clients.openWindow) {
-      return clients.openWindow(urlToOpen);
+    
+    // Si hay algún cliente, lo navegamos a la URL
+    if (windowClients.length > 0 && windowClients[0].navigate) {
+      console.log('[SW] Navegando cliente existente a nueva URL');
+      return windowClients[0].navigate(urlToOpen).then(client => client.focus());
     }
+    
+    // Si no hay cliente, abrimos uno nuevo
+    console.log('[SW] Abriendo nueva ventana');
+    return clients.openWindow(urlToOpen);
   });
   
   event.waitUntil(promiseChain);

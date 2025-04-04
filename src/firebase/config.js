@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getMessaging } from "firebase/messaging";
+import { getMessaging, isSupported } from "firebase/messaging";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB2xtx9PNSs_yAFice9jbkxzdahzzf3yoY",
@@ -29,15 +29,31 @@ const storage = getStorage(app);
 
 // Inicializar Cloud Messaging (solo en navegadores que lo soportan)
 let messaging = null;
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+
+// Función asíncrona para inicializar messaging
+const initMessaging = async () => {
     try {
-        messaging = getMessaging(app);
+        const isSupportedBrowser = await isSupported();
+        if (isSupportedBrowser && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+            messaging = getMessaging(app);
+            console.log('Firebase Messaging inicializado correctamente');
+            return messaging;
+        } else {
+            console.log('Este navegador no soporta Firebase Cloud Messaging');
+            return null;
+        }
     } catch (error) {
         console.error("Error al inicializar Firebase Messaging:", error);
+        return null;
     }
+};
+
+// Inicializar messaging inmediatamente si estamos en el navegador
+if (typeof window !== 'undefined') {
+    initMessaging();
 }
 
 // Optional: Set language for auth errors
 auth.languageCode = 'es';
 
-export { auth, secondaryAuth, db, storage, messaging, app as default };
+export { auth, secondaryAuth, db, storage, messaging, initMessaging, app as default };

@@ -4,12 +4,13 @@ import { AuthProvider, useAuth } from "./modules/auth";
 import { ThemeProvider } from "./core/context/ThemeContext";
 import AppRoutes from "./core/routes/AppRoutes";
 import { Toaster } from "react-hot-toast";
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { setupAppointmentNotifications } from './core/services/notificationService';
 import { initializePushNotifications } from './core/services/pushNotificationService';
 import { logDebug, logError } from './core/utils/logger';
 import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 import OfflineNotice from './components/common/OfflineNotice';
+import NotificationPreferences from './components/common/NotificationPreferences';
 import { isPWA } from './registerSW';
 
 // Componente interno que usa useAuth
@@ -17,6 +18,7 @@ function AppContent() {
   const { user } = useAuth();
   const unsubscribeRef = useRef(null);
   const isPwaMode = isPWA();
+  const [notificationSetupDone, setNotificationSetupDone] = useState(false);
 
   useEffect(() => {
     let cleanup = null;
@@ -30,8 +32,9 @@ function AppContent() {
           // Inicializar notificaciones push si estamos en modo PWA o si el usuario es admin
           if (isPwaMode || user.role === 'admin') {
             // Inicializar notificaciones push
-            await initializePushNotifications(user);
-            logDebug('Notificaciones push inicializadas');
+            const success = await initializePushNotifications(user);
+            setNotificationSetupDone(success);
+            logDebug('Notificaciones push inicializadas:', success);
           }
 
           // Configurar notificaciones específicas para administradores
@@ -52,6 +55,7 @@ function AppContent() {
           }
         } else {
           logDebug('Usuario no autenticado o no es admin');
+          setNotificationSetupDone(false);
           // Limpiar listener si existe
           if (unsubscribeRef.current) {
             unsubscribeRef.current();
@@ -60,6 +64,7 @@ function AppContent() {
         }
       } catch (error) {
         logError('Error al configurar notificaciones:', error);
+        setNotificationSetupDone(false);
       }
     };
 
@@ -79,6 +84,9 @@ function AppContent() {
     };
   }, [user, isPwaMode]); // Se ejecuta cuando cambia el usuario o el modo PWA
 
+  // Comprobar si debemos mostrar el botón de notificaciones
+  const showNotificationButton = user && (user.role === 'admin' || isPwaMode);
+
   return (
     <ThemeProvider>
       <Toaster 
@@ -96,6 +104,16 @@ function AppContent() {
       <AppRoutes />
       <PWAInstallPrompt />
       <OfflineNotice />
+      
+      {/* Mostrar botón de notificaciones si es necesario */}
+      {showNotificationButton && (
+        <div className="fixed bottom-24 right-4 z-50">
+          <NotificationPreferences 
+            user={user} 
+            isInitialized={notificationSetupDone} 
+          />
+        </div>
+      )}
     </ThemeProvider>
   );
 }

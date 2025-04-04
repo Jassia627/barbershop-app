@@ -1,12 +1,14 @@
-import { messaging } from '../../firebase/config';
-import { db } from '../../firebase/config';
+import { messaging, initMessaging, db } from '../../firebase/config';
 import { getToken, onMessage } from 'firebase/messaging';
 import { 
   collection, 
   doc, 
   setDoc, 
   addDoc, 
-  serverTimestamp 
+  serverTimestamp,
+  query,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { logDebug, logError } from '../utils/logger';
 import toast from 'react-hot-toast';
@@ -32,7 +34,8 @@ export const saveTokenToFirestore = async (user, token) => {
   try {
     const userTokenRef = doc(db, 'userTokens', user.uid);
     
-    await setDoc(userTokenRef, {
+    // Datos a guardar
+    const tokenData = {
       uid: user.uid,
       fcmToken: token,
       role: user.role || 'client',
@@ -41,9 +44,19 @@ export const saveTokenToFirestore = async (user, token) => {
       platform: 'web',
       isPWA: window.matchMedia('(display-mode: standalone)').matches,
       userAgent: navigator.userAgent
-    }, { merge: true });
+    };
+    
+    logDebug('Guardando token FCM:', tokenData);
+    
+    await setDoc(userTokenRef, tokenData, { merge: true });
     
     logDebug('Token FCM guardado exitosamente', token.slice(0, 10) + '...');
+    
+    // Imprimir un toast para confirmar (solo en modo desarrollo)
+    if (process.env.NODE_ENV === 'development') {
+      toast.success('FCM Token guardado', { duration: 2000 });
+    }
+    
     return true;
   } catch (error) {
     logError('Error al guardar token FCM:', error);
@@ -63,9 +76,18 @@ export const initializePushNotifications = async (user) => {
   }
 
   try {
+    logDebug('Iniciando configuración de notificaciones push', user);
+    
+    // Inicializar messaging si no está disponible
+    let messagingInstance = messaging;
+    if (!messagingInstance) {
+      logDebug('Messaging no inicializado, intentando inicializar...');
+      messagingInstance = await initMessaging();
+    }
+
     // Verificar si el servicio de mensajería está disponible
-    if (!messaging) {
-      logDebug('El servicio de mensajería de Firebase no está disponible');
+    if (!messagingInstance) {
+      logError('El servicio de mensajería de Firebase no está disponible');
       
       // Notificar al usuario en modo PWA
       if (window.matchMedia('(display-mode: standalone)').matches) {
@@ -101,24 +123,29 @@ export const initializePushNotifications = async (user) => {
       return false;
     }
     
-    // Asegurarnos de tener el service worker registrado para FCM
+    // Asegurarnos de tener el service worker registrado
     let serviceWorkerRegistration;
     try {
       serviceWorkerRegistration = await navigator.serviceWorker.ready;
-      logDebug('Service Worker listo para FCM:', serviceWorkerRegistration.scope);
+      logDebug('Service Worker listo:', serviceWorkerRegistration.scope);
     } catch (error) {
       logError('Error al obtener el Service Worker:', error);
       return false;
     }
     
     // Obtener token FCM
-    const token = await getToken(messaging, { 
+    logDebug('Obteniendo token FCM...');
+    const tokenOptions = { 
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration
-    });
+    };
+    
+    logDebug('Token options:', tokenOptions);
+    
+    const token = await getToken(messagingInstance, tokenOptions);
     
     if (!token) {
-      logDebug('No se pudo obtener el token FCM');
+      logError('No se pudo obtener el token FCM');
       if (window.matchMedia('(display-mode: standalone)').matches) {
         toast.error('No se pudo configurar las notificaciones');
       }
@@ -131,7 +158,7 @@ export const initializePushNotifications = async (user) => {
     await saveTokenToFirestore(user, token);
     
     // Configurar manejo de mensajes en primer plano
-    onMessage(messaging, (payload) => {
+    onMessage(messagingInstance, (payload) => {
       logDebug('Mensaje recibido en primer plano:', payload);
       
       const { notification } = payload;
@@ -139,7 +166,7 @@ export const initializePushNotifications = async (user) => {
       if (notification) {
         // Mostrar notificación usando react-hot-toast
         toast.success(notification.title, {
-          duration: 6000,
+          duration: 8000,
           icon: '🔔',
           style: {
             background: '#4CAF50',
@@ -173,6 +200,42 @@ export const initializePushNotifications = async (user) => {
 };
 
 /**
+ * Envía una notificación directa a través de FCM sin usar Cloud Functions
+ * @param {string} tokenId - Token FCM del destinatario
+ * @param {string} title - Título de la notificación
+ * @param {string} body - Cuerpo de la notificación
+ * @param {Object} data - Datos adicionales
+ */
+export const sendDirectNotification = async (tokenId, title, body, data = {}) => {
+  try {
+    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `key=AAAA4pu7GR0:APA91bEOqP7JdPb3n8D3HFZLwAXEjw7RJsn3BK0cw1gTWLz3p3vwQHFTv2LNSgJm7g4MoXKQeIB-i8x_0x3w2XQXJzxyvDrmT9yXQZtlsVhP-3qf4Nf_DsS9j6pJiafMYv1B3CJScJAz`
+      },
+      body: JSON.stringify({
+        to: tokenId,
+        notification: {
+          title,
+          body,
+          icon: '/Rojo negro.png',
+          click_action: data.url || '/'
+        },
+        data
+      })
+    });
+    
+    const result = await response.json();
+    logDebug('Respuesta FCM:', result);
+    return result.success === 1;
+  } catch (error) {
+    logError('Error al enviar notificación directa:', error);
+    return false;
+  }
+};
+
+/**
  * Envía una notificación push a todos los administradores de una tienda
  * @param {string} shopId - ID de la tienda
  * @param {string} title - Título de la notificación
@@ -186,8 +249,7 @@ export const sendPushNotificationToAdmins = async (shopId, title, body, data = {
   }
 
   try {
-    // Crear documento de notificación en Firestore
-    // Esto activará la Cloud Function que enviará la notificación push
+    // Primero, crear documento de notificación en Firestore
     await addDoc(collection(db, 'notifications'), {
       title,
       body,
@@ -199,8 +261,34 @@ export const sendPushNotificationToAdmins = async (shopId, title, body, data = {
       isPWA: window.matchMedia('(display-mode: standalone)').matches
     });
     
-    logDebug(`Notificación programada para envío: ${title}`);
-    return true;
+    // Obtener todos los tokens de administradores de esta tienda
+    const tokensQuery = query(
+      collection(db, 'userTokens'),
+      where('shopId', '==', shopId),
+      where('role', '==', 'admin')
+    );
+    
+    const tokensSnapshot = await getDocs(tokensQuery);
+    
+    if (tokensSnapshot.empty) {
+      logDebug('No se encontraron tokens de administradores para la tienda');
+      return false;
+    }
+    
+    // Enviar notificación a cada token encontrado
+    const sendPromises = tokensSnapshot.docs.map(doc => {
+      const tokenData = doc.data();
+      if (tokenData.fcmToken) {
+        return sendDirectNotification(tokenData.fcmToken, title, body, data);
+      }
+      return Promise.resolve(false);
+    });
+    
+    const results = await Promise.all(sendPromises);
+    const successCount = results.filter(Boolean).length;
+    
+    logDebug(`Notificaciones enviadas: ${successCount}/${results.length}`);
+    return successCount > 0;
   } catch (error) {
     logError('Error al enviar notificación push:', error);
     return false;
