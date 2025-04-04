@@ -17,7 +17,7 @@ import sendNotification from '../../api/send-notification';
 
 // Public VAPID key - Clave pública VAPID para Web Push
 // Esta clave necesita ser generada correctamente desde la consola de Firebase
-const VAPID_KEY = 'BM2dgOLr9a2cHD34NBlCRw_wBfdCdUgK7GsZMqbNxSUi_Mj5vVhRYUw0--nUmpIL9XRRU6Vfvep8-i7b0rMOX10';
+const VAPID_KEY = 'BAbMmZaX0PBzGUTx9qWPKKbKKnS_KrFfKb1O0t-gVUOROyg7RJnN3T7Ek1qVj-KfF_Q_ue4rZ3pYJ7rPiQ5qvVA';
 
 // Detección de dispositivo móvil
 const isMobileDevice = () => {
@@ -87,6 +87,7 @@ export const initializePushNotifications = async (user) => {
     // Comprobar si el dispositivo es móvil
     const isMobile = isMobileDevice();
     logDebug('Tipo de dispositivo:', isMobile ? 'Móvil' : 'Desktop');
+    logDebug('Desplegado en Vercel:', window.location.hostname.includes('vercel.app'));
     
     // Verificar si el navegador soporta notificaciones
     if (!('Notification' in window)) {
@@ -107,9 +108,40 @@ export const initializePushNotifications = async (user) => {
     // Asegurarnos de tener el service worker registrado
     let serviceWorkerRegistration;
     try {
-      // Obtener el service worker ya registrado
-      serviceWorkerRegistration = await navigator.serviceWorker.ready;
-      logDebug('Service Worker listo:', serviceWorkerRegistration.scope);
+      // Verificar si hay un service worker ya registrado
+      if (navigator.serviceWorker.controller) {
+        logDebug('Service Worker ya controlando la página:', navigator.serviceWorker.controller.state);
+      } else {
+        logDebug('No hay Service Worker controlando esta página, intentando registrar...');
+      }
+      
+      // Solicitar registro explícito del service worker para FCM
+      try {
+        serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+          scope: '/'
+        });
+        logDebug('Service Worker registrado explícitamente:', serviceWorkerRegistration.scope);
+      } catch (swError) {
+        logError('Error al registrar el Service Worker específico para FCM:', swError);
+        // Intentar usar el service worker ya registrado como respaldo
+        serviceWorkerRegistration = await navigator.serviceWorker.ready;
+      }
+      
+      // Asegurarse de que esté activo
+      if (serviceWorkerRegistration.active) {
+        logDebug('Service Worker activo:', serviceWorkerRegistration.active.state);
+      } else {
+        // Esperar a que se active
+        logDebug('Esperando a que el Service Worker se active...');
+        await new Promise((resolve) => {
+          serviceWorkerRegistration.installing.addEventListener('statechange', (e) => {
+            if (e.target.state === 'activated') {
+              logDebug('Service Worker activado después de espera');
+              resolve();
+            }
+          });
+        });
+      }
     } catch (error) {
       logError('Error al obtener el Service Worker:', error);
       return false;
@@ -138,13 +170,53 @@ export const initializePushNotifications = async (user) => {
         token = await getToken(messagingInstance, {
           serviceWorkerRegistration
         });
-      } catch (vapidError) {
-        logDebug('Error al obtener token sin VAPID, intentando con VAPID key...', vapidError);
+        logDebug('Token obtenido sin VAPID key');
+      } catch (noVapidError) {
+        logDebug('Error al obtener token sin VAPID, intentando con VAPID key...', noVapidError);
+        
         // Si falla, intentamos con la clave VAPID
-        token = await getToken(messagingInstance, {
-          vapidKey: VAPID_KEY,
-          serviceWorkerRegistration
-        });
+        try {
+          token = await getToken(messagingInstance, {
+            vapidKey: VAPID_KEY,
+            serviceWorkerRegistration
+          });
+          logDebug('Token obtenido con VAPID key');
+        } catch (vapidError) {
+          logError('Error al obtener token con VAPID key:', vapidError);
+          
+          // Último intento: registrar nuevamente el service worker de forma explícita
+          if (isMobile) {
+            logDebug('Último intento: registrando service worker nuevamente (dispositivo móvil)');
+            try {
+              const newRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { 
+                scope: '/',
+                updateViaCache: 'none'
+              });
+              
+              // Esperar a que esté activo
+              if (newRegistration.installing) {
+                await new Promise(resolve => {
+                  newRegistration.installing.addEventListener('statechange', (e) => {
+                    if (e.target.state === 'activated') {
+                      resolve();
+                    }
+                  });
+                });
+              }
+              
+              token = await getToken(messagingInstance, {
+                vapidKey: VAPID_KEY,
+                serviceWorkerRegistration: newRegistration
+              });
+              logDebug('Token obtenido después de re-registrar service worker');
+            } catch (finalError) {
+              logError('Error final al intentar obtener token FCM:', finalError);
+              throw finalError;
+            }
+          } else {
+            throw vapidError;
+          }
+        }
       }
       
       if (!token) {
@@ -157,6 +229,9 @@ export const initializePushNotifications = async (user) => {
       
       // Guardar token en Firestore
       await saveTokenToFirestore(user, token);
+      
+      // También guardar en el nuevo método
+      await saveUserToken(token);
       
       // Configurar manejo de mensajes en primer plano
       onMessage(messagingInstance, (payload) => {
