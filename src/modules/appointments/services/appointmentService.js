@@ -1,5 +1,5 @@
 // src/modules/appointments/services/appointmentService.js
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, orderBy, getDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/config';
 import { format } from 'date-fns';
 import { logDebug, logError } from '../../../core/utils/logger';
@@ -173,20 +173,71 @@ export const saveSchedule = async (scheduleData) => {
 // Función para guardar el historial de cortes
 export const saveHaircutHistory = async (appointmentData) => {
   try {
+    console.log("[DEBUG] Intentando guardar en historial:", appointmentData);
+    
+    // Comprobar si la cita tiene todos los campos necesarios
+    const requiredFields = ['appointmentId', 'barberId', 'barberName', 'clientName', 'shopId'];
+    const missingFields = requiredFields.filter(field => !appointmentData[field]);
+    
+    if (missingFields.length > 0) {
+      const errorMsg = `Faltan campos requeridos en la cita: ${missingFields.join(', ')}`;
+      console.error("Error al guardar historial:", errorMsg);
+      throw new Error(errorMsg);
+    }
+    
+    // Si el precio o serviceName no están definidos, usar valores predeterminados
+    const price = appointmentData.price || 0;
+    let serviceName = appointmentData.serviceName || '';
+    
+    // Si no hay serviceName, intentar obtenerlo del serviceId
+    if (!serviceName && appointmentData.serviceId) {
+      console.log("[DEBUG] No hay serviceName, intentando recuperarlo desde serviceId:", appointmentData.serviceId);
+      try {
+        // Aquí podríamos consultar a Firestore para obtener el nombre del servicio
+        // pero por ahora usamos un valor descriptivo
+        serviceName = `Servicio ID: ${appointmentData.serviceId}`;
+      } catch (serviceError) {
+        console.error("[DEBUG] Error al recuperar servicio por ID:", serviceError);
+      }
+    }
+    
+    // Si después de todo no hay serviceName, usar valor por defecto
+    if (!serviceName) {
+      serviceName = 'Servicio no especificado';
+    }
+    
+    // Crear objeto con toda la información necesaria
     const historyData = {
-      appointmentId: appointmentData.id,
+      appointmentId: appointmentData.appointmentId || appointmentData.id,
       barberId: appointmentData.barberId,
       barberName: appointmentData.barberName,
       clientName: appointmentData.clientName,
-      serviceName: appointmentData.serviceName,
-      price: appointmentData.price,
-      date: appointmentData.date,
+      serviceName: serviceName,
+      serviceId: appointmentData.serviceId || null, // Guardar el ID del servicio para referencia
+      price: price,
+      date: appointmentData.date instanceof Date ? 
+             appointmentData.date : 
+             (appointmentData.date?.toDate ? appointmentData.date.toDate() : new Date()),
       shopId: appointmentData.shopId,
-      createdAt: Timestamp.now()
+      createdAt: Timestamp.now(),
+      status: appointmentData.status || 'completed'
     };
-
-    await addDoc(collection(db, "haircut_history"), historyData);
-    return true;
+    
+    console.log("[DEBUG] Datos a guardar en historial:", JSON.stringify(historyData, null, 2));
+    
+    // Guardar en Firestore
+    const docRef = await addDoc(collection(db, "haircut_history"), historyData);
+    console.log("[DEBUG] Historial guardado con ID:", docRef.id);
+    
+    // Verificar que se guardó correctamente
+    const docSnap = await getDoc(doc(db, "haircut_history", docRef.id));
+    if (docSnap.exists()) {
+      console.log("[DEBUG] Verificación: Documento guardado correctamente:", docSnap.data());
+    } else {
+      console.error("[DEBUG] Verificación: No se pudo obtener el documento recién creado");
+    }
+    
+    return { success: true, id: docRef.id };
   } catch (error) {
     console.error("Error al guardar el historial de cortes:", error);
     throw error;
@@ -196,9 +247,17 @@ export const saveHaircutHistory = async (appointmentData) => {
 // Función para obtener el historial de cortes
 export const fetchHaircutHistory = async (shopId, barberId = null) => {
   try {
+    console.log("[DEBUG] fetchHaircutHistory - Inicio con parámetros:", { shopId, barberId });
+    
+    if (!shopId) {
+      console.error("fetchHaircutHistory - ERROR: shopId es obligatorio");
+      throw new Error("ID de tienda es obligatorio para obtener el historial");
+    }
+    
     let constraints = [where("shopId", "==", shopId)];
     
     if (barberId) {
+      console.log("[DEBUG] fetchHaircutHistory - Filtrando por barbero:", barberId);
       constraints.push(where("barberId", "==", barberId));
     }
     
@@ -208,12 +267,31 @@ export const fetchHaircutHistory = async (shopId, barberId = null) => {
       orderBy("date", "desc")
     );
     
+    console.log("[DEBUG] fetchHaircutHistory - Ejecutando consulta");
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      date: doc.data().date.toDate()
-    }));
+    console.log("[DEBUG] fetchHaircutHistory - Documentos encontrados:", snapshot.docs.length);
+    
+    const result = snapshot.docs.map(doc => {
+      const data = doc.data();
+      let dateValue;
+      
+      try {
+        // Intentar convertir date a objeto Date si es un timestamp
+        dateValue = data.date?.toDate ? data.date.toDate() : new Date(data.date);
+      } catch (dateError) {
+        console.error("[DEBUG] fetchHaircutHistory - Error al convertir fecha:", dateError);
+        dateValue = new Date(); // Usar fecha actual como fallback
+      }
+      
+      return {
+        id: doc.id,
+        ...data,
+        date: dateValue
+      };
+    });
+    
+    console.log("[DEBUG] fetchHaircutHistory - Datos procesados:", result.length);
+    return result;
   } catch (error) {
     console.error("Error al obtener el historial de cortes:", error);
     throw error;

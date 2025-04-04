@@ -14,6 +14,8 @@ import { fetchServices } from '../../services/services/serviceService';
 import { format, addMinutes, isValid, startOfDay, toDate, parseISO } from 'date-fns'; // Reimportar format
 import { toast } from 'react-hot-toast';
 import { logDebug, logError } from '../../../core/utils/logger';
+import { Timestamp, addDoc, collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../../core/firebase/config';
 
 export const useAppointments = (shopIdParam) => {
   const { user } = useAuth();
@@ -262,18 +264,154 @@ export const useAppointments = (shopIdParam) => {
 
   const finishAppointment = async (appointment) => {
     try {
+      logDebug("useAppointments: Iniciando finalización de cita:", appointment.id);
+      console.log("DATOS COMPLETOS DE LA CITA A FINALIZAR:", appointment);
+      
+      // Validar que tengamos todos los datos necesarios
+      if (!appointment || !appointment.id) {
+        const errorMsg = "No se puede finalizar: datos de cita incompletos";
+        logError("useAppointments:", errorMsg);
+        toast.error(errorMsg);
+        return false;
+      }
+      
+      // Verificar que tengamos serviceName en la cita
+      if (!appointment.serviceName) {
+        console.warn("No se encontró serviceName en la cita. Los datos actuales son:", 
+                    { serviceId: appointment.serviceId, serviceName: appointment.serviceName });
+        
+        // Si tenemos serviceId pero no serviceName, intentar obtener el servicio
+        if (appointment.serviceId && services.length > 0) {
+          const matchingService = services.find(s => s.id === appointment.serviceId);
+          if (matchingService) {
+            console.log("Se encontró el servicio por ID:", matchingService);
+            appointment.serviceName = matchingService.name;
+            appointment.price = matchingService.price || appointment.price || 0;
+          }
+        }
+      }
+      
       // Primero actualizamos el estado de la cita
-      await updateAppointmentStatus(appointment.id, 'finished');
+      logDebug("useAppointments: Actualizando estado a 'finished'");
+      await updateAppointmentStatus(appointment.id, 'finished', {
+        serviceName: appointment.serviceName || 'Servicio no especificado',
+        price: appointment.price || 0
+      });
       
-      // Luego guardamos en el historial
-      await saveHaircutHistory(appointment);
+      // Crear el objeto para guardar en el historial con datos por defecto si faltan
+      const historyData = {
+        appointmentId: appointment.id,
+        barberId: appointment.barberId || user.uid,
+        barberName: appointment.barberName || "Barbero",
+        clientName: appointment.clientName || "Cliente",
+        serviceName: appointment.serviceName || "Servicio no especificado",
+        price: appointment.price || 0,
+        serviceId: appointment.serviceId || null,
+        date: appointment.date instanceof Date ? 
+               appointment.date : 
+               (appointment.date?.toDate ? appointment.date.toDate() : new Date()),
+        shopId: appointment.shopId || user.shopId,
+        createdAt: serverTimestamp() // Usar serverTimestamp para mejor consistencia
+      };
       
-      toast.success('Cita finalizada y guardada en el historial');
+      console.log("GUARDANDO DIRECTAMENTE EN HISTORIAL:", JSON.stringify(historyData, null, 2));
+      
+      // Intento guardar de dos maneras diferentes para asegurar que los datos se guarden correctamente
+      let haircutRecordId;
+      
+      try {
+        // Intento 1: Guardar con saveHaircutHistory
+        console.log("INTENTO 1: Usando saveHaircutHistory");
+        const result = await saveHaircutHistory(historyData); // Pasamos directamente historyData en lugar de appointment
+        console.log("Resultado de saveHaircutHistory:", result);
+      } catch (saveError) {
+        console.error("ERROR EN INTENTO 1:", saveError);
+        
+        try {
+          // Intento 2: Guardar directamente en la colección
+          console.log("INTENTO 2: Guardando directamente en la colección");
+          const docRef = await addDoc(collection(db, "haircut_history"), historyData);
+          haircutRecordId = docRef.id;
+          console.log("HISTORIAL GUARDADO CON ID:", haircutRecordId);
+        } catch (directSaveError) {
+          console.error("ERROR EN INTENTO 2:", directSaveError);
+          throw new Error("No se pudo guardar el historial de cortes: " + directSaveError.message);
+        }
+      }
+      
+      // Intento 3: Verificar que los datos se guardaron correctamente
+      try {
+        console.log("INTENTO 3: Verificando que los datos se guardaron correctamente");
+        if (haircutRecordId) {
+          const docRef = doc(db, "haircut_history", haircutRecordId);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            console.log("VERIFICACIÓN EXITOSA - Datos guardados:", docSnap.data());
+          } else {
+            console.error("VERIFICACIÓN FALLIDA - No se encontró el documento recién creado");
+          }
+        } else {
+          console.log("No se puede verificar porque el ID no está disponible (se usó saveHaircutHistory)");
+        }
+      } catch (verifyError) {
+        console.error("Error al verificar los datos guardados:", verifyError);
+      }
+      
+      // Primera notificación: aviso general
+      toast.success('Cita finalizada y guardada exitosamente', {
+        duration: 3000,
+        position: 'top-center'
+      });
+      
+      // Segunda notificación: instrucción para ver el historial
+      setTimeout(() => {
+        toast.success(
+          'Puedes ver el registro en el historial de cortes', 
+          { 
+            duration: 3000,
+            icon: '📊',
+            style: {
+              borderLeft: '4px solid #8B5CF6',
+              padding: '16px',
+              color: '#1F2937',
+            }
+          }
+        );
+      }, 3500);
+
+      // Tercera notificación: con enlace al historial
+      setTimeout(() => {
+        toast.success(
+          'Haz clic aquí para ir al historial', 
+          {
+            duration: 8000,
+            icon: '👆',
+            style: {
+              background: '#8B5CF6',
+              color: 'white',
+              padding: '16px',
+              cursor: 'pointer'
+            },
+            onClick: () => {
+              window.location.href = '/admin/haircut-history?forceReload=true&from=appointments';
+            }
+          }
+        );
+      }, 7000);
+      
       await filterAppointments();
       return true;
     } catch (error) {
       logError("useAppointments: Error al finalizar cita", error);
+      console.error("ERROR DETALLADO:", error);
       toast.error("Error al finalizar la cita: " + error.message);
+      // A pesar del error, aún refrescamos la lista para reflejar cualquier cambio parcial
+      try {
+        await filterAppointments();
+      } catch (refreshError) {
+        logError("useAppointments: Error adicional al refrescar citas", refreshError);
+      }
       return false;
     }
   };
