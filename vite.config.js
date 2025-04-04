@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',  // Usar nuestra propia implementación de SW
+      srcDir: 'public',
+      filename: 'sw.js',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'Barbershop App',
@@ -26,68 +29,12 @@ export default defineConfig({
           }
         ]
       },
-      workbox: {
+      injectManifest: {
+        injectionPoint: null, // No buscamos punto de inyección ya que tenemos nuestro propio SW
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MB
-        injectManifest: false,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 días
-              }
-            }
-          },
-          {
-            urlPattern: /\/$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'navigation-cache',
-              expiration: {
-                maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 // 1 día
-              },
-              networkTimeoutSeconds: 3
-            }
-          }
-        ],
         globPatterns: [
           '**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp}',
-        ],
-        swDest: 'dist/sw.js',
-        skipWaiting: true,
-        clientsClaim: true
+        ]
       }
     })
   ],
