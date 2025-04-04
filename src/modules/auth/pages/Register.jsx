@@ -1,10 +1,13 @@
 // src/modules/auth/pages/Register.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Mail, Lock, User, Sun, Moon, Scissors, ChevronRight } from 'lucide-react';
+import { Mail, Lock, User, Sun, Moon, Scissors, ChevronRight, Phone, Building } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '../../../firebase/config';
+import ShopList from '../../../components/common/ShopList';
 
 const Register = () => {
   const { signup } = useAuth();
@@ -12,25 +15,129 @@ const Register = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    confirmPassword: '',
     name: '',
+    role: 'admin',
+    phone: '',
+    shopId: '',
+    shopName: ''
   });
   const [loading, setLoading] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  // Efecto para animación de entrada
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'role' && {
+        shopId: '',
+        shopName: ''
+      })
+    }));
+  };
+
+  const validateForm = () => {
+    if (!formData.name.trim()) {
+      toast.error('El nombre es requerido');
+      return false;
+    }
+    if (!formData.email.trim()) {
+      toast.error('El correo electrónico es requerido');
+      return false;
+    }
+    if (!formData.phone.trim()) {
+      toast.error('El teléfono es requerido');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return false;
+    }
+    if (formData.password.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return false;
+    }
+    if (formData.role === 'barber' && !formData.shopId) {
+      toast.error('Debe seleccionar una barbería');
+      return false;
+    }
+    if (formData.role === 'admin' && !formData.shopName) {
+      toast.error('Debe ingresar el nombre de la barbería');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+    
     setLoading(true);
     try {
-      await signup(formData.email, formData.password);
-      toast.success('Registro exitoso. Por favor, inicia sesión.');
+      const userCredential = await signup(formData.email, formData.password);
+      const uid = userCredential.user.uid;
+      
+      const userData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        role: formData.role,
+        createdAt: new Date().toISOString(),
+        status: formData.role === 'admin' ? 'active' : 'inactive',
+        shopId: formData.role === 'admin' ? uid : formData.shopId,
+        shopName: formData.role === 'admin' ? formData.shopName : formData.shopName,
+        uid: uid
+      };
+
+      if (formData.role === 'admin') {
+        userData.isShopOwner = true;
+        userData.status = 'active';
+      } else {
+        const shopDoc = await getDoc(doc(db, "users", formData.shopId));
+        if (!shopDoc.exists()) {
+          throw new Error('La barbería seleccionada no existe');
+        }
+        userData.status = 'pending';
+        userData.isApproved = false;
+      }
+
+      await setDoc(doc(db, "users", uid), userData);
+      
+      let message = 'Registro exitoso';
+      if (formData.role === 'barber') {
+        message += '. Tu cuenta está pendiente de aprobación por el administrador';
+      }
+      toast.success(message);
       navigate('/login');
     } catch (error) {
-      toast.error('Error al registrarse');
+      console.error('Error en el registro:', error);
+      let errorMessage = 'Error al registrar usuario';
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'Este correo ya está registrado';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Correo electrónico inválido';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = 'El registro está deshabilitado temporalmente';
+          break;
+        case 'auth/weak-password':
+          errorMessage = 'La contraseña es muy débil';
+          break;
+        default:
+          errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -86,7 +193,7 @@ const Register = () => {
 
         <div className="w-full max-w-md">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 backdrop-blur-sm bg-opacity-80 dark:bg-opacity-80">
-            {/* Logo */}
+            {/* Logo - ahora dentro de la tarjeta para todos los dispositivos */}
             <div className="flex justify-center mb-6">
               <img
                 src={theme === 'dark' ? '/Rojo negro.png' : '/Verde negro.png'}
@@ -97,72 +204,187 @@ const Register = () => {
             
             <div className="text-center mb-6">
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                Crear Cuenta
+                Crear nueva cuenta
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Regístrate para comenzar
+                Regístrate para comenzar a gestionar tu barbería
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-4">
                 <div className="group">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Nombre Completo
+                    Nombre completo
                   </label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Tu nombre completo"
+              <input
+                      id="name"
+                      name="name"
+                type="text"
                       required
-                    />
-                  </div>
-                </div>
-
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Ingresa tu nombre completo"
+                value={formData.name}
+                      onChange={handleChange}
+                      disabled={loading}
+              />
+            </div>
+          </div>
+                
                 <div className="group">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Correo Electrónico
+                    Correo electrónico
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              <input
+                      id="email"
+                      name="email"
+                type="email"
+                      required
                       className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
                       placeholder="correo@ejemplo.com"
-                      required
+                value={formData.email}
+                      onChange={handleChange}
+                      disabled={loading}
                     />
                   </div>
                 </div>
+                
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Teléfono
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Ingresa tu teléfono"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Tipo de usuario
+                  </label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <select
+                      id="role"
+                      name="role"
+                      required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200 appearance-none"
+                      value={formData.role}
+                      onChange={handleChange}
+                      disabled={loading}
+                    >
+                      <option value="barber">Barbero</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
 
+                {formData.role === 'admin' ? (
+                  <div className="group">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      Nombre de la Barbería
+                    </label>
+                    <div className="relative">
+                      <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                      <input
+                        id="shopName"
+                        name="shopName"
+                        type="text"
+                required
+                        className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Nombre de tu barbería"
+                        value={formData.shopName}
+                        onChange={handleChange}
+                        disabled={loading}
+              />
+            </div>
+          </div>
+                ) : (
+                  <div className={`border rounded-lg p-4 transition-colors duration-200
+                    ${theme === 'dark' ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
+                    <label className={`block text-sm font-medium mb-2
+                      ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
+                      Seleccionar Barbería
+                    </label>
+                    <ShopList
+                      onSelect={(shop) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          shopId: shop.shopId,
+                          shopName: shop.shopName
+                        }));
+                      }}
+                      selectedShopId={formData.shopId}
+                    />
+                  </div>
+                )}
+                
                 <div className="group">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     Contraseña
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              <input
+                      id="password"
+                      name="password"
+                type="password"
+                      required
                       className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
                       placeholder="••••••••"
-                      required
+                value={formData.password}
+                      onChange={handleChange}
+                      disabled={loading}
                     />
                   </div>
                 </div>
+                
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Confirmar contraseña
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                      placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      disabled={loading}
+              />
+            </div>
+          </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
+          <button
+            type="submit"
+            disabled={loading}
                 className="w-full px-4 py-3.5 text-white bg-gradient-to-r from-[#024850] to-[#023840] dark:from-red-600 dark:to-red-700 rounded-lg hover:from-[#023840] hover:to-[#022830] dark:hover:from-red-700 dark:hover:to-red-800 focus:ring-4 focus:ring-[#024850]/50 dark:focus:ring-red-500 focus:ring-opacity-50 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
+          >
                 {loading ? (
                   <div className="flex items-center justify-center">
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
@@ -174,15 +396,18 @@ const Register = () => {
                     <ChevronRight className="h-5 w-5" />
                   </>
                 )}
-              </button>
-            </form>
+          </button>
+        </form>
 
             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
               <p className="text-center text-sm text-gray-500 dark:text-gray-400">
                 ¿Ya tienes una cuenta?{' '}
-                <a href="/login" className="font-medium text-[#024850] dark:text-red-500 hover:text-[#023840] dark:hover:text-red-600">
+                <Link to="/login" className="font-medium text-[#024850] dark:text-red-500 hover:text-[#023840] dark:hover:text-red-400">
                   Inicia sesión
-                </a>
+                </Link>
+              </p>
+              <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
+                © {new Date().getFullYear()} Barbershop App. Todos los derechos reservados.
               </p>
             </div>
           </div>

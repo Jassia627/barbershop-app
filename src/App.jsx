@@ -7,6 +7,8 @@ import { Toaster } from "react-hot-toast";
 import { useEffect, useRef } from 'react';
 import { setupAppointmentNotifications } from './core/services/notificationService';
 import { logDebug, logError } from './core/utils/logger';
+import PWAInstallPrompt from './components/common/PWAInstallPrompt';
+import OfflineNotice from './components/common/OfflineNotice';
 
 // Componente interno que usa useAuth
 function AppContent() {
@@ -77,6 +79,8 @@ function AppContent() {
         }}
       />
       <AppRoutes />
+      <PWAInstallPrompt />
+      <OfflineNotice />
     </ThemeProvider>
   );
 }

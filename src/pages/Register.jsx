@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
-import { Moon, Sun, UserPlus, Loader } from 'lucide-react';
+import { Moon, Sun, UserPlus, Loader, Mail, Lock, User, Phone, Building, Scissors, ChevronRight } from 'lucide-react';
 import ShopList from '../components/common/ShopList';
 
 const Register = () => {
@@ -24,6 +24,12 @@ const Register = () => {
   const navigate = useNavigate();
   const { signup, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Efecto para animación de entrada
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -141,202 +147,319 @@ const Register = () => {
     }
   };
 
-  const inputClasses = `appearance-none rounded-md relative block w-full px-3 py-2 border
-    transition-colors duration-200
-    ${theme === 'dark' 
-      ? 'border-gray-700 bg-gray-700 text-white placeholder-gray-400 focus:ring-yellow-500 focus:border-yellow-500' 
-      : 'border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:ring-yellow-500 focus:border-yellow-500'
-    }`;
-
   return (
-    <div className={`min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200
-      ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className={`max-w-md w-full space-y-8 p-10 rounded-xl shadow-2xl relative transition-colors duration-200
-        ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+    <div className="min-h-screen flex flex-col md:flex-row overflow-hidden">
+      {/* Panel lateral decorativo - solo visible en desktop */}
+      <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-[#024850] to-[#023840] dark:from-red-600 dark:to-red-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-pattern opacity-10"></div>
         
-        {/* Theme Toggle Button */}
+        {/* Elementos decorativos */}
+        <div className="absolute top-10 left-10 w-20 h-20 rounded-full bg-white/20 animate-float"></div>
+        <div className="absolute bottom-20 right-20 w-32 h-32 rounded-full bg-white/10 animate-float-delay"></div>
+        <div className="absolute top-1/3 right-1/4 w-16 h-16 rounded-full bg-white/15 animate-float-slow"></div>
+        
+        <div className="relative z-10 flex flex-col justify-center items-center w-full p-12">
+          <img 
+            src={theme === 'dark' ? '/Rojo negro.png' : '/Verde negro.png'} 
+            alt="Logo Grande" 
+            className="w-64 h-auto mb-8 animate-pulse-subtle"
+          />
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 text-center">
+            Barbershop App
+          </h1>
+          <p className="text-white/80 text-xl text-center max-w-md">
+            Gestiona tu barbería de manera profesional y eficiente
+          </p>
+          
+          <div className="mt-12 flex items-center gap-3 bg-white/20 px-6 py-4 rounded-xl">
+            <Scissors className="h-6 w-6 text-white" />
+            <p className="text-white font-medium">La mejor experiencia para tu negocio</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Panel de registro */}
+      <div 
+        className={`w-full md:w-1/2 flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 md:p-8 transition-opacity duration-500 ${mounted ? 'opacity-100' : 'opacity-0'}`}
+      >
+        {/* Botón de tema */}
         <button
           onClick={toggleTheme}
-          className={`absolute top-4 right-4 p-2 rounded-full transition-colors duration-200
-            ${theme === 'dark' 
-              ? 'hover:bg-gray-700 text-yellow-500' 
-              : 'hover:bg-gray-100 text-gray-500'}`}
+          className="absolute top-4 right-4 p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 z-20"
+          aria-label="Cambiar tema"
         >
-          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          {theme === 'dark' ? (
+            <Sun className="h-5 w-5 text-yellow-500" />
+          ) : (
+            <Moon className="h-5 w-5 text-[#024850]" />
+          )}
         </button>
 
-        <div>
-        {theme === 'dark' ? (
-            <img 
-            src="/bb.png" 
-            alt="Barbería" 
-            className="mx-auto h-36"
-          />
-          ) : (
-            <img 
-            src="/bbDark.png" 
-            alt="Barbería" 
-            className="mx-auto h-36"
-          />
-          )}
-          <h2 className={`mt-6 text-center text-3xl font-extrabold transition-colors duration-200
-            ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-            Crear nueva cuenta
-          </h2>
-          <p className={`mt-2 text-center text-sm transition-colors duration-200
-            ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-            ¿Ya tienes una cuenta?{' '}
-            <Link to="/login" className="font-medium text-yellow-500 hover:text-yellow-400">
-              Inicia sesión
-            </Link>
-          </p>
-        </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm space-y-4">
-            <div>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                className={inputClasses}
-                placeholder="Nombre completo"
-                value={formData.name}
-                onChange={handleChange}
-                disabled={loading}
+        <div className="w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 backdrop-blur-sm bg-opacity-80 dark:bg-opacity-80">
+            {/* Logo - ahora dentro de la tarjeta para todos los dispositivos */}
+            <div className="flex justify-center mb-6">
+              <img
+                src={theme === 'dark' ? '/Rojo negro.png' : '/Verde negro.png'}
+                alt="Logo"
+                className="h-28 md:h-24 w-auto object-contain transition-all duration-300"
               />
             </div>
             
-            <div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className={inputClasses}
-                placeholder="Correo electrónico"
-                value={formData.email}
-                onChange={handleChange}
-                disabled={loading}
-              />
+            <div className="text-center mb-6">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Crear nueva cuenta
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Regístrate para comenzar a gestionar tu barbería
+              </p>
             </div>
-            
-            <div>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
-                className={inputClasses}
-                placeholder="Teléfono"
-                value={formData.phone}
-                onChange={handleChange}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-4">
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Nombre completo
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <input
+                      id="name"
+                      name="name"
+                      type="text"
+                      required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Ingresa tu nombre completo"
+                      value={formData.name}
+                      onChange={handleChange}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Correo electrónico
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                      placeholder="correo@ejemplo.com"
+                      value={formData.email}
+                      onChange={handleChange}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Teléfono
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Ingresa tu teléfono"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Tipo de usuario
+                  </label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <select
+                      id="role"
+                      name="role"
+                      required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200 appearance-none"
+                      value={formData.role}
+                      onChange={handleChange}
+                      disabled={loading}
+                    >
+                      <option value="barber">Barbero</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {formData.role === 'admin' ? (
+                  <div className="group">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      Nombre de la Barbería
+                    </label>
+                    <div className="relative">
+                      <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                      <input
+                        id="shopName"
+                        name="shopName"
+                        type="text"
+                        required
+                        className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Nombre de tu barbería"
+                        value={formData.shopName}
+                        onChange={handleChange}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`border rounded-lg p-4 transition-colors duration-200
+                    ${theme === 'dark' ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
+                    <label className={`block text-sm font-medium mb-2
+                      ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
+                      Seleccionar Barbería
+                    </label>
+                    <ShopList
+                      onSelect={(shop) => {
+                        setFormData(prev => ({
+                          ...prev,  
+                          shopId: shop.shopId,
+                          shopName: shop.shopName
+                        }));
+                      }}
+                      selectedShopId={formData.shopId}
+                    />
+                  </div>
+                )}
+                
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Contraseña
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={handleChange}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                
+                <div className="group">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Confirmar contraseña
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-[#024850] dark:group-focus-within:text-red-500 transition-colors" />
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      required
+                      className="pl-10 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#024850] dark:focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                      placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
                 disabled={loading}
-              />
-            </div>
-            
-            <div>
-              <select
-                id="role"
-                name="role"
-                required
-                className={inputClasses}
-                value={formData.role}
-                onChange={handleChange}
-                disabled={loading}
+                className="w-full px-4 py-3.5 text-white bg-gradient-to-r from-[#024850] to-[#023840] dark:from-red-600 dark:to-red-700 rounded-lg hover:from-[#023840] hover:to-[#022830] dark:hover:from-red-700 dark:hover:to-red-800 focus:ring-4 focus:ring-[#024850]/50 dark:focus:ring-red-500 focus:ring-opacity-50 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
               >
-                <option value="barber">Barbero</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Registrando...
+                  </div>
+                ) : (
+                  <>
+                    <span>Registrarse</span>
+                    <ChevronRight className="h-5 w-5" />
+                  </>
+                )}
+              </button>
+            </form>
 
-            {formData.role === 'admin' ? (
-              <div>
-                <input
-                  id="shopName"
-                  name="shopName"
-                  type="text"
-                  required
-                  className={inputClasses}
-                  placeholder="Nombre de la Barbería"
-                  value={formData.shopName}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
-            ) : (
-              <div className={`border rounded-md p-4 transition-colors duration-200
-                ${theme === 'dark' ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
-                <label className={`block text-sm font-medium mb-2
-                  ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
-                  Seleccionar Barbería
-                </label>
-                <ShopList
-                  onSelect={(shop) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      shopId: shop.shopId,
-                      shopName: shop.shopName
-                    }));
-                  }}
-                  selectedShopId={formData.shopId}
-                />
-              </div>
-            )}
-            
-            <div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className={inputClasses}
-                placeholder="Contraseña"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </div>
-            
-            <div>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                className={inputClasses}
-                placeholder="Confirmar contraseña"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                disabled={loading}
-              />
+            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+                ¿Ya tienes una cuenta?{' '}
+                <Link to="/login" className="font-medium text-[#024850] dark:text-red-500 hover:text-[#023840] dark:hover:text-red-400">
+                  Inicia sesión
+                </Link>
+              </p>
+              <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
+                © {new Date().getFullYear()} Barbershop App. Todos los derechos reservados.
+              </p>
             </div>
           </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md
-                text-black bg-yellow-500 hover:bg-yellow-400 transition-colors duration-200
-                ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-            >
-              {loading ? (
-                <>
-                  <Loader className="animate-spin h-5 w-5 mr-2" />
-                  Registrando...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-5 w-5 mr-2" />
-                  Registrarse
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
+
+      {/* Estilos para animaciones */}
+      <style jsx="true">{`
+        .bg-pattern {
+          background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-15px); }
+        }
+        
+        @keyframes float-delay {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes float-slow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes pulse-subtle {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+        
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        
+        .animate-float-delay {
+          animation: float-delay 8s ease-in-out infinite;
+        }
+        
+        .animate-float-slow {
+          animation: float-slow 10s ease-in-out infinite;
+        }
+        
+        .animate-pulse-subtle {
+          animation: pulse-subtle 5s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 };
