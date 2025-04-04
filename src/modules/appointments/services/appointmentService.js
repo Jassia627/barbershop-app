@@ -112,15 +112,13 @@ export const createAppointment = async (appointmentData) => {
       ...appointmentData,
       date: appointmentData.date instanceof Date ? Timestamp.fromDate(appointmentData.date) : Timestamp.fromMillis(appointmentData.date),
       createdAt: Timestamp.now(),
-      status: 'pending',
-      notificationSent: false
+      status: 'pending'
     };
 
     const docRef = await addDoc(collection(db, "appointments"), appointment);
-    logDebug('Cita creada con ID:', docRef.id);
     
-    // El listener en setupAppointmentNotifications se encargará de enviar la notificación
-    // No es necesario enviar la notificación aquí
+    // No necesitamos enviar la notificación aquí ya que el listener en setupAppointmentNotifications
+    // se encargará de enviarla automáticamente
 
     return { id: docRef.id, ...appointment };
   } catch (error) {

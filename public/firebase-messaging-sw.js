@@ -1,10 +1,11 @@
-// firebase-messaging-sw.js
-// Este archivo debe estar en la raíz del proyecto (public)
+// Give the service worker access to Firebase Messaging.
+// Note that you can only use Firebase Messaging here. Other Firebase libraries
+// are not available in the service worker.
+importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js');
 
-importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js');
-
-// Configuración de Firebase
+// Initialize the Firebase app in the service worker by passing in
+// your app's Firebase config object.
 firebase.initializeApp({
   apiKey: "AIzaSyB2xtx9PNSs_yAFice9jbkxzdahzzf3yoY",
   authDomain: "barbershop-9810d.firebaseapp.com",
@@ -15,62 +16,56 @@ firebase.initializeApp({
   measurementId: "G-5Q1DXP7L23"
 });
 
-// Obtener instancia de Firebase Messaging
+// Retrieve an instance of Firebase Messaging so that it can handle background messages.
 const messaging = firebase.messaging();
 
-// Configurar manejo de mensajes en segundo plano (cuando app está cerrada o en background)
+// Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Recibida notificación en background:', payload);
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  const notificationTitle = payload.notification?.title || 'Nueva notificación';
+  // Customize notification here
+  const notificationTitle = payload.notification.title;
   const notificationOptions = {
-    body: payload.notification?.body || 'Tienes una nueva notificación',
-    icon: '/Rojo negro.png',
+    body: payload.notification.body,
+    icon: '/logo.png',
     badge: '/badge.png',
-    vibrate: [200, 100, 200, 100, 200],
-    tag: 'barbershop-notification',
-    data: payload.data || {},
-    actions: [
-      {
-        action: 'open',
-        title: 'Ver detalles'
-      }
-    ]
+    vibrate: [200, 100, 200],
+    tag: 'new-appointment',
+    renotify: true
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Manejar clic en la notificación
+// Handle notification click in background
 self.addEventListener('notificationclick', (event) => {
-  console.log('[firebase-messaging-sw.js] Clic en notificación', event);
+  console.log('[firebase-messaging-sw.js] Notification click:', event);
   
+  // Close the notification
   event.notification.close();
   
-  // Navegar a URL específica
-  const urlToOpen = event.notification.data?.url || '/';
+  // Navigate to the appointments page when clicked
+  // This will focus on an existing tab or open a new one if needed
+  const urlToOpen = new URL('/admin/appointments', self.location.origin).href;
   
-  event.waitUntil(
-    clients.matchAll({type: 'window', includeUncontrolled: true})
-      .then((windowClients) => {
-        // Verificar si ya hay una ventana abierta con la URL
-        for (let i = 0; i < windowClients.length; i++) {
-          const client = windowClients[i];
-          // Si existe, enfocar esa ventana
-          if ('focus' in client) {
-            client.focus();
-            client.postMessage({
-              type: 'NOTIFICATION_CLICK',
-              url: urlToOpen
-            });
-            return;
-          }
-        }
-        
-        // Si no hay una ventana abierta, abrir una nueva
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
-        }
-      })
-  );
+  const promiseChain = clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true
+  })
+  .then((windowClients) => {
+    // Check if there is already a window open with the target URL
+    for (let i = 0; i < windowClients.length; i++) {
+      const client = windowClients[i];
+      // If so, focus it
+      if (client.url === urlToOpen && 'focus' in client) {
+        return client.focus();
+      }
+    }
+    // If not, open a new window
+    if (clients.openWindow) {
+      return clients.openWindow(urlToOpen);
+    }
+  });
+  
+  event.waitUntil(promiseChain);
 }); 

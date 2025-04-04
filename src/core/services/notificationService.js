@@ -1,11 +1,10 @@
 import { logDebug, logError } from '../utils/logger';
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { initializePushNotifications, sendPushNotification } from './pushNotificationService';
-import { getUserTokens } from './userService';
+import { initializePushNotifications, sendPushNotificationToAdmins } from './pushNotificationService';
 
 // Variables para controlar las notificaciones
 const notifiedAppointments = new Set();
@@ -334,55 +333,3 @@ export const setupAppointmentNotifications = (user) => {
     return null;
   }
 }; 
-
-// Enviar notificación push a todos los administradores
-export const sendPushNotificationToAdmins = async (shopId, title, body, data = {}) => {
-  try {
-    if (!shopId) {
-      logError('No se puede enviar notificación: ID de tienda no proporcionado');
-      return false;
-    }
-
-    // Obtener todos los tokens de usuarios admin de esta tienda
-    const adminTokens = await getUserTokens(shopId, 'admin');
-    if (!adminTokens || adminTokens.length === 0) {
-      logDebug('No hay tokens de administradores para enviar notificaciones push');
-      return false;
-    }
-
-    logDebug(`Enviando notificación push a ${adminTokens.length} administradores`);
-    
-    // Enviar a cada token de administrador
-    const promises = adminTokens.map(token => {
-      return sendPushNotification(token, title, body, data);
-    });
-    
-    // Esperar a que todas las notificaciones se envíen
-    const results = await Promise.allSettled(promises);
-    
-    // Contar éxitos y fracasos
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-    const failed = results.length - successful;
-    
-    logDebug(`Notificaciones push enviadas: ${successful} exitosas, ${failed} fallidas`);
-    
-    // Marcar la cita como notificada si se proporcionó ID
-    if (data.appointmentId) {
-      try {
-        await updateDoc(doc(db, "appointments", data.appointmentId), {
-          notificationSent: true,
-          notificationSentAt: new Date(),
-          notificationStatus: `Enviada a ${successful} dispositivos`
-        });
-        logDebug(`Cita ${data.appointmentId} marcada como notificada`);
-      } catch (updateError) {
-        logError('Error al marcar cita como notificada:', updateError);
-      }
-    }
-    
-    return successful > 0;
-  } catch (error) {
-    logError('Error al enviar notificaciones push a administradores:', error);
-    return false;
-  }
-};

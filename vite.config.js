@@ -7,9 +7,6 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      strategies: 'injectManifest',  // Usar nuestra propia implementación de SW
-      srcDir: 'public',
-      filename: 'sw.js',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
         name: 'Barbershop App',
@@ -29,11 +26,37 @@ export default defineConfig({
           }
         ]
       },
-      injectManifest: {
-        injectionPoint: null, // No buscamos punto de inyección ya que tenemos nuestro propio SW
+      workbox: {
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MB
-        globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp}',
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gstatic-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
         ]
       }
     })
