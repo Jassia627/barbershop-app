@@ -28,6 +28,7 @@ export default defineConfig({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MB
+        injectManifest: false,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -56,8 +57,37 @@ export default defineConfig({
                 statuses: [0, 200]
               }
             }
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 días
+              }
+            }
+          },
+          {
+            urlPattern: /\/$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'navigation-cache',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 // 1 día
+              },
+              networkTimeoutSeconds: 3
+            }
           }
-        ]
+        ],
+        globPatterns: [
+          '**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp}',
+        ],
+        swDest: 'dist/sw.js',
+        skipWaiting: true,
+        clientsClaim: true
       }
     })
   ],

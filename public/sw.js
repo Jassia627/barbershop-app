@@ -1,3 +1,22 @@
+// Importar Firebase solo si no está definido ya
+if (typeof firebase === 'undefined') {
+  importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js');
+
+  firebase.initializeApp({
+    apiKey: "AIzaSyB2xtx9PNSs_yAFice9jbkxzdahzzf3yoY",
+    authDomain: "barbershop-9810d.firebaseapp.com",
+    projectId: "barbershop-9810d",
+    storageBucket: "barbershop-9810d.appspot.com",
+    messagingSenderId: "678061957866",
+    appId: "1:678061957866:web:9cd1c7e7742451f4186d93",
+    measurementId: "G-5Q1DXP7L23"
+  });
+
+  // Inicializar Messaging
+  firebase.messaging();
+}
+
 const CACHE_NAME = 'barbershop-v1';
 const urlsToCache = [
   '/',
@@ -37,6 +56,9 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  
+  // Asegurarse de que el service worker se activa inmediatamente
+  event.waitUntil(self.clients.claim());
 });
 
 // Estrategia de caché: Network first, falling back to cache
@@ -91,21 +113,73 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Manejo de mensajes de Firebase (integrándolo con el service worker existente)
-// Importar Firebase solo si no lo importamos ya en firebase-messaging-sw.js
-if (typeof firebase === 'undefined') {
-  importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js');
-  importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js');
+// Handle background messages
+self.addEventListener('push', (event) => {
+  console.log('[Service Worker] Push recibido:', event);
 
-  firebase.initializeApp({
-    apiKey: "AIzaSyB2xtx9PNSs_yAFice9jbkxzdahzzf3yoY",
-    authDomain: "barbershop-9810d.firebaseapp.com",
-    projectId: "barbershop-9810d",
-    storageBucket: "barbershop-9810d.appspot.com",
-    messagingSenderId: "678061957866",
-    appId: "1:678061957866:web:9cd1c7e7742451f4186d93",
-    measurementId: "G-5Q1DXP7L23"
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch (e) {
+    console.log('Error al parsear payload:', e);
+    payload = {
+      notification: {
+        title: 'Nueva notificación',
+        body: event.data ? event.data.text() : 'Sin contenido',
+        icon: '/badge.png'
+      }
+    };
+  }
+
+  const { notification } = payload;
+
+  const options = {
+    body: notification.body || 'Tienes una notificación',
+    icon: notification.icon || '/Rojo negro.png',
+    badge: '/badge.png',
+    vibrate: [200, 100, 200, 100, 200],
+    tag: notification.tag || 'barbershop-notification',
+    requireInteraction: true,
+    data: {
+      url: notification.click_action || '/',
+      ...payload.data
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(notification.title || 'Barbershop App', options)
+  );
+});
+
+// Handle notification click in background
+self.addEventListener('notificationclick', (event) => {
+  console.log('[Service Worker] Notification click:', event);
+  
+  // Close the notification
+  event.notification.close();
+  
+  // Navigate to the specified page when clicked or default to appointments
+  const url = event.notification.data?.url || '/admin/appointments';
+  const urlToOpen = new URL(url, self.location.origin).href;
+  
+  const promiseChain = clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true
+  })
+  .then((windowClients) => {
+    // Check if there is already a window open with the target URL
+    for (let i = 0; i < windowClients.length; i++) {
+      const client = windowClients[i];
+      // If so, focus it
+      if (client.url === urlToOpen && 'focus' in client) {
+        return client.focus();
+      }
+    }
+    // If not, open a new window
+    if (clients.openWindow) {
+      return clients.openWindow(urlToOpen);
+    }
   });
-
-  const messaging = firebase.messaging();
-} 
+  
+  event.waitUntil(promiseChain);
+}); 

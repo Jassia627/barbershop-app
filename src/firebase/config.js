@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getMessaging } from "firebase/messaging";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB2xtx9PNSs_yAFice9jbkxzdahzzf3yoY",
@@ -26,7 +27,17 @@ const secondaryAuth = getAuth(secondaryApp);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
+// Inicializar Cloud Messaging (solo en navegadores que lo soportan)
+let messaging = null;
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+        messaging = getMessaging(app);
+    } catch (error) {
+        console.error("Error al inicializar Firebase Messaging:", error);
+    }
+}
+
 // Optional: Set language for auth errors
 auth.languageCode = 'es';
 
-export { auth, secondaryAuth, db, storage, app as default };
+export { auth, secondaryAuth, db, storage, messaging, app as default };

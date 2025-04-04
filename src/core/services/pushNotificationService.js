@@ -1,5 +1,5 @@
-import { messaging } from '../firebase/config';
-import { db } from '../firebase/config';
+import { messaging } from '../../firebase/config';
+import { db } from '../../firebase/config';
 import { getToken, onMessage } from 'firebase/messaging';
 import { 
   collection, 
@@ -11,7 +11,7 @@ import {
 import { logDebug, logError } from '../utils/logger';
 import toast from 'react-hot-toast';
 
-// Public VAPID key
+// Public VAPID key - Clave pública VAPID para Web Push
 const VAPID_KEY = 'BM2dgOLr9a2cHD34NBlCRw_wBfdCdUgK7GsZMqbNxSUi_Mj5vVhRYUw0--nUmpIL9XRRU6Vfvep8-i7b0rMOX10';
 
 /**
@@ -39,6 +39,7 @@ export const saveTokenToFirestore = async (user, token) => {
       shopId: user.shopId || null,
       lastUpdated: serverTimestamp(),
       platform: 'web',
+      isPWA: window.matchMedia('(display-mode: standalone)').matches,
       userAgent: navigator.userAgent
     }, { merge: true });
     
@@ -65,6 +66,12 @@ export const initializePushNotifications = async (user) => {
     // Verificar si el servicio de mensajería está disponible
     if (!messaging) {
       logDebug('El servicio de mensajería de Firebase no está disponible');
+      
+      // Notificar al usuario en modo PWA
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        toast.error('Las notificaciones no están disponibles en este dispositivo');
+      }
+      
       return false;
     }
 
@@ -74,6 +81,11 @@ export const initializePushNotifications = async (user) => {
     // Verificar si el navegador soporta notificaciones
     if (!('Notification' in window)) {
       logDebug('Este navegador no soporta notificaciones push');
+      
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        toast.error('Tu dispositivo no soporta notificaciones push');
+      }
+      
       return false;
     }
     
@@ -82,18 +94,34 @@ export const initializePushNotifications = async (user) => {
     logDebug('Estado del permiso de notificaciones:', permission);
     
     if (permission !== 'granted') {
-      toast.error('Para recibir notificaciones push, acepta los permisos');
+      // Mostrar mensaje solo en PWA
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        toast.error('Para recibir notificaciones, acepta los permisos');
+      }
+      return false;
+    }
+    
+    // Asegurarnos de tener el service worker registrado para FCM
+    let serviceWorkerRegistration;
+    try {
+      serviceWorkerRegistration = await navigator.serviceWorker.ready;
+      logDebug('Service Worker listo para FCM:', serviceWorkerRegistration.scope);
+    } catch (error) {
+      logError('Error al obtener el Service Worker:', error);
       return false;
     }
     
     // Obtener token FCM
     const token = await getToken(messaging, { 
       vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')
+      serviceWorkerRegistration
     });
     
     if (!token) {
       logDebug('No se pudo obtener el token FCM');
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        toast.error('No se pudo configurar las notificaciones');
+      }
       return false;
     }
     
@@ -110,7 +138,7 @@ export const initializePushNotifications = async (user) => {
       
       if (notification) {
         // Mostrar notificación usando react-hot-toast
-        toast.success(notification.body, {
+        toast.success(notification.title, {
           duration: 6000,
           icon: '🔔',
           style: {
@@ -119,6 +147,7 @@ export const initializePushNotifications = async (user) => {
             fontWeight: 'bold',
             padding: '16px',
           },
+          description: notification.body
         });
         
         // Reproducir sonido
@@ -130,6 +159,10 @@ export const initializePushNotifications = async (user) => {
         }
       }
     });
+    
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      toast.success('Notificaciones configuradas correctamente');
+    }
     
     logDebug('Sistema de notificaciones push inicializado correctamente');
     return true;
@@ -162,7 +195,8 @@ export const sendPushNotificationToAdmins = async (shopId, title, body, data = {
       data,
       createdAt: serverTimestamp(),
       sent: false,
-      platform: 'web'
+      platform: 'web',
+      isPWA: window.matchMedia('(display-mode: standalone)').matches
     });
     
     logDebug(`Notificación programada para envío: ${title}`);
