@@ -112,13 +112,70 @@ export const createAppointment = async (appointmentData) => {
       ...appointmentData,
       date: appointmentData.date instanceof Date ? Timestamp.fromDate(appointmentData.date) : Timestamp.fromMillis(appointmentData.date),
       createdAt: Timestamp.now(),
-      status: 'pending'
+      status: 'pending',
+      notificationSent: false,  // Marcador para seguimiento de notificaciones
+      needsAttention: true      // Marca que necesita atención del administrador
     };
 
+    logDebug('Guardando nueva cita en Firestore:', appointment);
     const docRef = await addDoc(collection(db, "appointments"), appointment);
+    const appointmentId = docRef.id;
+    logDebug(`Cita creada con ID: ${appointmentId}`);
     
-    // No necesitamos enviar la notificación aquí ya que el listener en setupAppointmentNotifications
-    // se encargará de enviarla automáticamente
+    // Enviar notificación usando el endpoint
+    if (appointment.shopId) {
+      try {
+        logDebug('Preparando notificación para la nueva cita...');
+        
+        // Intentamos enviar directamente una notificación a través de nuestra API
+        const notificationData = {
+          title: '🔔 Nueva Cita',
+          body: `${appointment.clientName || 'Un cliente'} ha reservado ${appointment.service} para ${format(appointment.date.toDate(), 'dd/MM/yyyy HH:mm', { locale: es })}`,
+          shopId: appointment.shopId,
+          role: 'admin', // Solo enviar a administradores
+          data: {
+            appointmentId: appointmentId,
+            type: 'new_appointment',
+            url: `/admin/appointments?id=${appointmentId}`
+          }
+        };
+        
+        logDebug('Enviando notificación directa mediante toast:', notificationData);
+        // Enviar notificación local en la interfaz si el usuario está usando la app
+        sendNotification(
+          notificationData.title,
+          notificationData.body,
+          () => {
+            window.location.href = notificationData.data.url;
+          }
+        );
+        
+        // Intentar activar el endpoint de notificaciones directamente
+        logDebug('Activando endpoint trigger-appointment-notification...');
+        fetch(`/api/trigger-appointment-notification?appointmentId=${appointmentId}`)
+          .then(response => {
+            if (!response.ok) {
+              logError('Error en respuesta de notificación:', response.status, response.statusText);
+              return response.text().then(text => {
+                logError('Detalles del error:', text);
+                throw new Error(`Error ${response.status}: ${text}`);
+              });
+            }
+            return response.json();
+          })
+          .then(data => {
+            logDebug('Respuesta de notificación push:', data);
+          })
+          .catch(error => {
+            logError('Error al enviar solicitud de notificación push:', error);
+          });
+
+        logDebug('Solicitud de notificación de cita enviada');
+      } catch (notifError) {
+        logError('Error al solicitar notificación de cita:', notifError);
+        // Continuamos aunque falle la notificación
+      }
+    }
 
     return { id: docRef.id, ...appointment };
   } catch (error) {

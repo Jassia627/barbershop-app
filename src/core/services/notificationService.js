@@ -4,7 +4,7 @@ import { db } from '../firebase/config';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { initializePushNotifications, sendPushNotificationToAdmins } from './pushNotificationService';
+import { initializeWebPushNotifications } from './webPushService';
 
 // Variables para controlar las notificaciones
 const notifiedAppointments = new Set();
@@ -198,7 +198,7 @@ const checkAppointments = async (user) => {
       const notificationTitle = '¡Nueva Cita!';
       const notificationBody = `${appointment.clientName || 'Un cliente'} ha solicitado una cita para ${formattedDate}`;
       
-      // Enviar notificación local
+      // Enviar notificación local (en la interfaz de usuario)
       sendNotification(
         notificationTitle,
         notificationBody,
@@ -206,18 +206,6 @@ const checkAppointments = async (user) => {
           window.location.href = '/admin/appointments';
         }
       );
-      
-      // También enviar notificación push para dispositivos móviles
-      sendPushNotificationToAdmins(
-        user.shopId, 
-        notificationTitle, 
-        notificationBody, 
-        {
-          appointmentId,
-          url: '/admin/appointments',
-          type: 'new_appointment'
-        }
-      ).catch(e => console.error('Error al enviar notificación push:', e));
       
       // Para móviles, mostrar una segunda notificación para llamar más la atención
       if (isMobileDevice()) {
@@ -273,15 +261,15 @@ export const setupAppointmentNotifications = (user) => {
       notificationInterval = null;
     }
 
-    // Inicializar notificaciones push (incluye solicitud de permiso)
+    // Inicializar notificaciones web push (incluye solicitud de permiso)
     if (!pushNotificationsInitialized) {
-      initializePushNotifications(user)
+      initializeWebPushNotifications(user)
         .then(success => {
           pushNotificationsInitialized = success;
-          console.log('Inicialización de notificaciones push:', success ? 'exitosa' : 'fallida');
+          console.log('Inicialización de notificaciones web push:', success ? 'exitosa' : 'fallida');
         })
         .catch(error => {
-          console.error('Error al inicializar notificaciones push:', error);
+          console.error('Error al inicializar notificaciones web push:', error);
         });
     }
     

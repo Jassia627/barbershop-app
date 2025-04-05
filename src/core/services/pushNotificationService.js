@@ -106,24 +106,45 @@ export const initializePushNotifications = async (user) => {
     onMessage(messaging, (payload) => {
       logDebug('Mensaje recibido en primer plano:', payload);
       
-      const { notification } = payload;
+      const { notification, data } = payload;
       
       if (notification) {
+        // Determinar si es una notificación de cita
+        const isAppointment = data?.type === 'new_appointment';
+        
         // Mostrar notificación usando react-hot-toast
         toast.success(notification.body, {
-          duration: 6000,
-          icon: '🔔',
+          duration: isAppointment ? 10000 : 6000, // Más tiempo para citas
+          icon: isAppointment ? '📅' : '🔔',
           style: {
-            background: '#4CAF50',
+            background: isAppointment ? '#4CAF50' : '#2196F3',
             color: '#fff',
             fontWeight: 'bold',
             padding: '16px',
+            fontSize: isAppointment ? '18px' : '16px',
+            borderLeft: isAppointment ? '5px solid #2E7D32' : 'none',
           },
         });
+        
+        // Para citas, mostrar una segunda notificación más llamativa
+        if (isAppointment) {
+          setTimeout(() => {
+            toast.success('¡Nueva cita! Revisa los detalles', {
+              duration: 5000,
+              icon: '✨',
+              style: {
+                background: '#E91E63',
+                color: '#fff',
+                fontWeight: 'bold',
+              },
+            });
+          }, 1000);
+        }
         
         // Reproducir sonido
         try {
           const audio = new Audio('/notification.mp3');
+          audio.volume = isAppointment ? 1.0 : 0.7; // Volumen máximo para citas
           audio.play().catch(e => logDebug('Error al reproducir sonido:', e));
         } catch (e) {
           logDebug('Error al crear objeto de audio:', e);

@@ -4,8 +4,16 @@
 importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.10.0/firebase-messaging-compat.js');
 
-// Initialize the Firebase app in the service worker by passing in
-// your app's Firebase config object.
+const DEBUG = true;
+
+// Función para log
+function logDebug(...args) {
+  if (DEBUG) {
+    console.log('[Firebase-SW]', ...args);
+  }
+}
+
+// Inicializar Firebase
 firebase.initializeApp({
   apiKey: "AIzaSyB2xtx9PNSs_yAFice9jbkxzdahzzf3yoY",
   authDomain: "barbershop-9810d.firebaseapp.com",
@@ -16,56 +24,97 @@ firebase.initializeApp({
   measurementId: "G-5Q1DXP7L23"
 });
 
-// Retrieve an instance of Firebase Messaging so that it can handle background messages.
+// Retrieve an instance of Firebase Messaging
 const messaging = firebase.messaging();
 
-// Handle background messages
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  
-  // Customize notification here
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/logo.png',
-    badge: '/badge.png',
-    vibrate: [200, 100, 200],
-    tag: 'new-appointment',
-    renotify: true
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+// Instalación del service worker
+self.addEventListener('install', (event) => {
+  logDebug('Service Worker instalado');
+  // Forzar activación inmediata
+  self.skipWaiting();
 });
 
-// Handle notification click in background
+// Activación del service worker
+self.addEventListener('activate', (event) => {
+  logDebug('Service Worker activado');
+  // Reclamar clientes abiertos
+  event.waitUntil(clients.claim());
+});
+
+// Handle incoming messages
+messaging.onBackgroundMessage((payload) => {
+  logDebug('Mensaje recibido en background:', payload);
+  
+  const notificationData = payload.notification || payload.data || {};
+  
+  // Mostrar la notificación
+  self.registration.showNotification(
+    notificationData.title || 'Barbershop App', 
+    {
+      body: notificationData.body || 'Tienes una nueva notificación',
+      icon: notificationData.icon || '/badge.png',
+      badge: '/badge.png',
+      tag: notificationData.tag || 'firebase-notification',
+      data: {
+        url: notificationData.click_action || '/',
+        firebasePayload: payload
+      },
+      actions: [
+        {
+          action: 'open',
+          title: 'Ver detalles'
+        }
+      ]
+    }
+  );
+});
+
+// Manejo del clic en la notificación
 self.addEventListener('notificationclick', (event) => {
-  console.log('[firebase-messaging-sw.js] Notification click:', event);
-  
-  // Close the notification
-  event.notification.close();
-  
-  // Navigate to the appointments page when clicked
-  // This will focus on an existing tab or open a new one if needed
-  const urlToOpen = new URL('/admin/appointments', self.location.origin).href;
-  
-  const promiseChain = clients.matchAll({
-    type: 'window',
-    includeUncontrolled: true
-  })
-  .then((windowClients) => {
-    // Check if there is already a window open with the target URL
-    for (let i = 0; i < windowClients.length; i++) {
-      const client = windowClients[i];
-      // If so, focus it
-      if (client.url === urlToOpen && 'focus' in client) {
-        return client.focus();
-      }
-    }
-    // If not, open a new window
-    if (clients.openWindow) {
-      return clients.openWindow(urlToOpen);
-    }
+  const notification = event.notification;
+  const action = event.action;
+  const data = notification.data || {};
+
+  logDebug('Clic en notificación', { 
+    notification: notification, 
+    action: action, 
+    data: data 
   });
+
+  // Cerrar la notificación
+  notification.close();
+
+  // Ruta por defecto
+  let url = '/';
   
-  event.waitUntil(promiseChain);
-}); 
+  // Si hay datos de URL en la notificación, usarla
+  if (data.url) {
+    url = data.url;
+  }
+
+  logDebug('Abriendo URL:', url);
+
+  // Abrir o enfocar una ventana existente
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clientList) => {
+      // Verificar si ya hay una ventana abierta 
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus();
+          // Intentar navegar a la URL
+          if (client.navigate) {
+            return client.navigate(url);
+          }
+          return client;
+        }
+      }
+
+      // Si no hay ventana abierta, abrir una nueva
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    })
+  );
+});
+
+logDebug('Firebase Messaging Service Worker registrado y listo'); 

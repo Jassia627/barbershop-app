@@ -41,10 +41,11 @@ self.addEventListener('activate', (event) => {
 
 // Estrategia de caché: Network first, falling back to cache
 self.addEventListener('fetch', (event) => {
-  // Excluir las peticiones a Firebase y otras APIs
+  // Excluir las peticiones a Firebase, APIs y chrome-extension
   if (event.request.url.includes('firestore.googleapis.com') || 
       event.request.url.includes('firebase') ||
-      event.request.url.includes('/api/')) {
+      event.request.url.includes('/api/') ||
+      event.request.url.startsWith('chrome-extension://')) {
     return;
   }
 
@@ -61,7 +62,14 @@ self.addEventListener('fetch', (event) => {
 
         caches.open(CACHE_NAME)
           .then((cache) => {
-            cache.put(event.request, responseToCache);
+            try {
+              // Verificar nuevamente que la URL no sea de chrome-extension
+              if (!event.request.url.startsWith('chrome-extension://')) {
+                cache.put(event.request, responseToCache);
+              }
+            } catch (error) {
+              console.error('Error al almacenar en caché:', error);
+            }
           });
 
         return response;

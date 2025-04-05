@@ -1,0 +1,11 @@
+{
+  "name": "barbershop-api",
+  "version": "1.0.0",
+  "description": "API endpoints for barbershop app",
+  "main": "index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "firebase-admin": "^11.8.0",
+    "web-push": "^3.6.1"
+  }
+} 

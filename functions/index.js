@@ -2,6 +2,14 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
+// Importar funciones de webPushService
+const webPushService = require('./webPushService');
+
+// Exponer funciones de web-push
+exports.saveWebPushSubscription = webPushService.saveSubscription;
+exports.sendAppointmentNotification = webPushService.sendAppointmentNotification;
+exports.getVapidPublicKey = webPushService.getVapidPublicKey;
+
 /**
  * Función para enviar notificaciones push a los administradores
  * Se activa cuando se crea un nuevo documento en la colección 'notifications'
@@ -11,6 +19,12 @@ exports.sendAdminNotification = functions.firestore
   .onCreate(async (snapshot, context) => {
     try {
       const notificationData = snapshot.data();
+      
+      // Si ya está gestionada por web-push, no hacer nada
+      if (notificationData.method === 'web-push') {
+        console.log('Notificación ya enviada por web-push');
+        return null;
+      }
       
       // Verificar que la notificación tenga todos los campos necesarios
       if (!notificationData.title || !notificationData.body || !notificationData.shopId) {
@@ -32,27 +46,40 @@ exports.sendAdminNotification = functions.firestore
         return null;
       }
 
+      // Personalizar la notificación según el tipo
+      const notificationType = notificationData.data?.type || 'notification';
+      let notificationTitle = notificationData.title;
+      let notificationBody = notificationData.body;
+      let notificationIcon = '/logo.png';
+      
+      // Si es una notificación de cita nueva, destacarla más
+      if (notificationType === 'new_appointment') {
+        notificationTitle = `🔔 ${notificationTitle}`;
+        notificationIcon = '/appointment_icon.png';
+      }
+
       // Datos de la notificación para Firebase Cloud Messaging
       const message = {
         notification: {
-          title: notificationData.title,
-          body: notificationData.body,
+          title: notificationTitle,
+          body: notificationBody,
         },
         data: {
           url: notificationData.data?.url || '/admin/appointments',
-          type: notificationData.data?.type || 'notification',
+          type: notificationType,
           appointmentId: notificationData.data?.appointmentId || '',
           shopId: notificationData.shopId,
           click_action: 'FLUTTER_NOTIFICATION_CLICK', // Para aplicaciones Flutter
+          timestamp: Date.now().toString(), // Añadir timestamp para evitar duplicados
         },
         webpush: {
           notification: {
-            icon: '/logo.png',
+            icon: notificationIcon,
             badge: '/badge.png',
             actions: [
               {
                 action: 'view',
-                title: 'Ver detalles'
+                title: notificationType === 'new_appointment' ? 'Ver cita' : 'Ver detalles'
               }
             ],
             vibrate: [200, 100, 200],
@@ -60,6 +87,9 @@ exports.sendAdminNotification = functions.firestore
           },
           fcmOptions: {
             link: notificationData.data?.url || '/admin/appointments',
+          },
+          headers: {
+            TTL: '86400' // 24 horas en segundos
           }
         },
         // Indicamos prioridad alta para que se muestre de inmediato
@@ -68,12 +98,16 @@ exports.sendAdminNotification = functions.firestore
           notification: {
             sound: 'default',
             clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            color: notificationType === 'new_appointment' ? '#4CAF50' : '#2196F3', // Verde para citas, azul para otras
+            channelId: notificationType === 'new_appointment' ? 'appointment_channel' : 'general_channel',
           }
         },
         apns: {
           payload: {
             aps: {
               sound: 'default',
+              badge: 1,
+              category: notificationType
             }
           }
         }

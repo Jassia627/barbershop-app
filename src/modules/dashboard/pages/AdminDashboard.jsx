@@ -5,9 +5,12 @@ import StatsCard from '../components/StatsCard';
 import Chart from '../components/Chart';
 import ShareBookingLink from '../../shared/components/ShareBookingLink';
 import { DollarSign, Scissors, Users, TrendingDown } from 'lucide-react';
+import PushNotificationsComponent from '../../../components/common/PushNotificationsComponent';
+import { useAuth } from '../../auth';
 
 const AdminDashboard = () => {
   const { stats, loading } = useDashboard();
+  const { user } = useAuth();
 
   if (loading) return <div className="flex justify-center items-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" /></div>;
 
@@ -42,7 +45,10 @@ const AdminDashboard = () => {
       </div>
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Chart data={stats.salesChartData} dataKey="value" title="Ventas por Día" />
-        <ShareBookingLink />
+        <div className="space-y-6">
+          <ShareBookingLink />
+          <PushNotificationsComponent user={user} />
+        </div>
       </div>
     </div>
   );

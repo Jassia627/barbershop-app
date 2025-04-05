@@ -4,6 +4,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB2xtx9PNSs_yAFice9jbkxzdahzzf3yoY",
@@ -24,6 +25,7 @@ const auth = getAuth(app);
 const secondaryAuth = getAuth(secondaryApp);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const functions = getFunctions(app);
 
 // Inicializar Firebase Cloud Messaging solo si es compatible
 let messaging = null;
@@ -44,4 +46,4 @@ isSupported().then(isSupported => {
 
 auth.languageCode = 'es';
 
-export { auth, secondaryAuth, db, storage, messaging, app as default };
+export { auth, secondaryAuth, db, storage, messaging, functions, app as default };

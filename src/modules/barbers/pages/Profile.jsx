@@ -5,6 +5,7 @@ import { useProfile } from '../hooks/useProfile';
 import ProfileForm from '../components/ProfileForm';
 import BarberStatus from '../components/BarberStatus';
 import { User, Mail, Phone, Edit, X, Check } from 'lucide-react';
+import PushNotificationsComponent from '../../../components/common/PushNotificationsComponent';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -85,6 +86,13 @@ const Profile = () => {
           </div>
         </div>
       </div>
+      
+      {/* Sección de Notificaciones Push */}
+      {user && (user.role === 'admin') && (
+        <div className="mt-8">
+          <PushNotificationsComponent user={user} />
+        </div>
+      )}
     </div>
   );
 };
